@@ -18,6 +18,7 @@ export const createEmployeeSchema = z.object({
 
 export const updateEmployeeSchema = createEmployeeSchema.partial().extend({
   id: z.string(),
+  isActive: z.boolean().optional(),
 })
 
 export const checkInSchema = z.object({

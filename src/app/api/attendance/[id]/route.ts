@@ -94,6 +94,11 @@ export async function PUT(
     const userSettings = attendance.user.settings
     const settings = userSettings || globalSettings
 
+    const globalSettingsData = {
+      ...globalSettings,
+      workingDays: globalSettings.workingDays.split(',').map(Number),
+    }
+
     // Prepare update data
     const updateData: {
       checkInTime?: Date
@@ -121,7 +126,7 @@ export async function PUT(
       const { lateMinutes, fineAmount } = calculateLateFine(
         newCheckIn,
         settings.checkInTime,
-        globalSettings
+        globalSettingsData
       )
       updateData.lateMinutes = lateMinutes
       updateData.fineAmount = fineAmount
