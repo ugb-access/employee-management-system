@@ -1,0 +1,148 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String        @id @default(cuid())
+  email       String        @unique
+  password    String
+  name        String
+  role        Role          @default(EMPLOYEE)
+  designation String?
+  employeeId  String?       @unique
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  attendance  Attendance[]
+  leaves      Leave[]
+  offDays     OffDay[]
+  settings    UserSettings?
+}
+
+model UserSettings {
+  id                String @id @default(cuid())
+  userId            String @unique
+  checkInTime       String @default("09:00")
+  checkOutTime      String @default("17:00")
+  requiredWorkHours Float  @default(8.0)
+  user              User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model GlobalSettings {
+  id                 String    @id @default(cuid())
+  checkInTime        String    @default("09:00")
+  checkOutTime       String    @default("17:00")
+  requiredWorkHours  Float     @default(8.0)
+  lateFineBase       Int       @default(250)
+  lateFinePer30Min   Int       @default(250)
+  leaveCost          Int       @default(1000)
+  paidLeavesPerMonth Int       @default(1)
+  warningLeaveCount  Int       @default(3)
+  dangerLeaveCount   Int       @default(5)
+  workingDays        String    @default("1,2,3,4,5")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  holidays           Holiday[]
+}
+
+model Attendance {
+  id                String    @id @default(cuid())
+  userId            String
+  date              DateTime  @db.Date
+  checkInTime       DateTime?
+  checkOutTime      DateTime?
+  checkInReason     String?
+  checkOutReason    String?
+  lateMinutes       Int       @default(0)
+  earlyMinutes      Int       @default(0)
+  totalHours        Float     @default(0)
+  fineAmount        Int       @default(0)
+  isAutoLeave       Boolean   @default(false)
+  isModifiedByAdmin Boolean   @default(false)
+  modifiedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([date])
+}
+
+model Leave {
+  id          String      @id @default(cuid())
+  userId      String
+  date        DateTime    @db.Date
+  reason      String
+  leaveType   LeaveType   @default(UNPAID)
+  status      LeaveStatus @default(PENDING)
+  appliedBy   String
+  requestedAt DateTime    @default(now())
+  approvedBy  String?
+  approvedAt  DateTime?
+  isPaid      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([status])
+  @@index([date])
+}
+
+model Holiday {
+  id          String          @id @default(cuid())
+  name        String
+  date        DateTime        @db.Date
+  year        Int
+  isRecurring Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  settingsId  String?
+  settings    GlobalSettings? @relation(fields: [settingsId], references: [id])
+
+  @@unique([date, year])
+  @@index([date])
+}
+
+model OffDay {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  reason    String
+  isPaid    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([date])
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum LeaveType {
+  PAID
+  UNPAID
+  SICK
+  CASUAL
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
