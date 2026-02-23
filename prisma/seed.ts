@@ -1,21 +1,8 @@
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
 
-// Create a connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-})
-
-// Create the adapter
-const adapter = new PrismaPg(pool)
-
-// Create PrismaClient with the adapter
-const prisma = new PrismaClient({
-  adapter,
-})
+const prisma = new PrismaClient()
 
 async function main() {
   console.log('Seeding database...')
