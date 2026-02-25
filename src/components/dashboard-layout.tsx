@@ -39,6 +39,7 @@ const navigation = {
     { name: 'Off Days', href: '/dashboard/admin/off-days', icon: CalendarDays },
     { name: 'Reports', href: '/dashboard/admin/reports', icon: BarChart3 },
     { name: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
+    { name: 'Profile', href: '/dashboard/admin/profile', icon: User },
   ],
   EMPLOYEE: [
     { name: 'Dashboard', href: '/dashboard/employee', icon: LayoutDashboard },

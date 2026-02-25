@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw, Key, Copy, Check } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
 
 interface EmployeeSettings {
@@ -31,6 +31,8 @@ interface Employee {
   name: string | null
   designation: string | null
   employeeId: string | null
+  accessKey: string | null
+  joinedDate: string | null
   isActive: boolean
   settings: EmployeeSettings | null
 }
@@ -44,6 +46,8 @@ export default function EditEmployeePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [accessKey, setAccessKey] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -51,6 +55,7 @@ export default function EditEmployeePage() {
     password: '',
     designation: '',
     employeeId: '',
+    joinedDate: '',
     isActive: true,
     checkInTime: '',
     checkOutTime: '',
@@ -87,15 +92,53 @@ export default function EditEmployeePage() {
         password: '',
         designation: employee.designation || '',
         employeeId: employee.employeeId || '',
+        joinedDate: employee.joinedDate ? employee.joinedDate.split('T')[0] : '',
         isActive: employee.isActive,
         checkInTime: employee.settings?.checkInTime || '',
         checkOutTime: employee.settings?.checkOutTime || '',
         requiredWorkHours: employee.settings?.requiredWorkHours?.toString() || '',
       })
+      setAccessKey(employee.accessKey)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to fetch employee')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      console.error('Failed to copy')
+    }
+  }
+
+  const handleRegenerateKey = async () => {
+    if (!confirm('Are you sure? The old access key will stop working immediately.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/employees/${employeeId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ regenerateAccessKey: true }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to regenerate access key')
+      }
+
+      setAccessKey(data.employee.accessKey)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to regenerate access key')
     }
   }
 
@@ -115,8 +158,8 @@ export default function EditEmployeePage() {
           email: formData.email,
           password: formData.password || undefined,
           designation: formData.designation,
-          employeeId: formData.employeeId,
           isActive: formData.isActive,
+          joinedDate: formData.joinedDate || undefined,
           checkInTime: formData.checkInTime || undefined,
           checkOutTime: formData.checkOutTime || undefined,
           requiredWorkHours: formData.requiredWorkHours
@@ -226,16 +269,15 @@ export default function EditEmployeePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="employeeId">Employee ID *</Label>
+                  <Label htmlFor="employeeId">Employee ID</Label>
                   <Input
                     id="employeeId"
-                    placeholder="EMP001"
                     value={formData.employeeId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, employeeId: e.target.value })
-                    }
-                    required
+                    readOnly
+                    disabled
+                    className="bg-muted font-mono"
                   />
+                  <p className="text-xs text-muted-foreground">Auto-generated, cannot be changed</p>
                 </div>
 
                 <div className="space-y-2">
@@ -248,6 +290,18 @@ export default function EditEmployeePage() {
                       setFormData({ ...formData, designation: e.target.value })
                     }
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="joinedDate">Joined Date</Label>
+                  <Input
+                    id="joinedDate"
+                    type="date"
+                    value={formData.joinedDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, joinedDate: e.target.value })
+                    }
                   />
                 </div>
 
@@ -311,6 +365,49 @@ export default function EditEmployeePage() {
                       }
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Access Key Section */}
+              <div className="border-t pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Key className="h-5 w-5" />
+                  <h3 className="text-lg font-medium">Access Key</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Employee uses this key along with Employee ID to log in.
+                </p>
+                <div className="flex items-end gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label>Current Access Key</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={accessKey || ''}
+                        className="font-mono"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => copyToClipboard(accessKey || '')}
+                      >
+                        {copied ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRegenerateKey}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Regenerate
+                  </Button>
                 </div>
               </div>
 

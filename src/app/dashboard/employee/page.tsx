@@ -26,6 +26,7 @@ interface GlobalSettings {
   checkInTime: string
   checkOutTime: string
   requiredWorkHours: number
+  gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
   leaveCost: number
@@ -286,19 +287,42 @@ export default function EmployeeDashboardPage() {
         </div>
 
         {/* Late Warning */}
-        {!hasCheckedIn && !isDayComplete && calculateLateMinutes() > 0 && (
-          <Card className="border-red-200 bg-red-50 dark:bg-red-950/50">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                <div>
-                  <p className="font-medium text-red-900 dark:text-red-100">You are {calculateLateMinutes()} minutes late</p>
-                  <p className="text-sm text-red-700 dark:text-red-300">A fine of Rs.{globalSettings?.lateFineBase || 250}+ will be applied</p>
+        {!hasCheckedIn && !isDayComplete && calculateLateMinutes() > 0 && globalSettings && (() => {
+          const settingsData = {
+            ...globalSettings,
+            workingDays: globalSettings.workingDays.split(',').map(Number),
+          }
+          const { fineAmount } = calculateLateFine(new Date(), getCheckInTime(), settingsData)
+          const gracePeriod = globalSettings.gracePeriodMinutes ?? 0
+          const isWithinGrace = calculateLateMinutes() <= gracePeriod
+
+          return (
+            <Card className={`border-2 ${isWithinGrace ? 'border-yellow-200 bg-yellow-50 dark:bg-yellow-950/50' : 'border-red-200 bg-red-50 dark:bg-red-950/50'}`}>
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className={`h-5 w-5 mt-0.5 ${isWithinGrace ? 'text-yellow-600' : 'text-red-600'}`} />
+                  <div className="space-y-2">
+                    <p className={`font-medium ${isWithinGrace ? 'text-yellow-900 dark:text-yellow-100' : 'text-red-900 dark:text-red-100'}`}>
+                      You are {calculateLateMinutes()} minutes late
+                    </p>
+                    {isWithinGrace ? (
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        Within grace period ({gracePeriod} min) - No fine will be applied
+                      </p>
+                    ) : (
+                      <p className="text-sm text-red-700 dark:text-red-300">
+                        A fine of <span className="font-semibold">Rs.{fineAmount}</span> will be applied
+                      </p>
+                    )}
+                    <div className={`text-xs rounded px-2 py-1.5 ${isWithinGrace ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-100/50 dark:bg-yellow-900/30' : 'text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30'}`}>
+                      <span className="font-medium">Fine Policy:</span> {gracePeriod} min grace | Rs.{globalSettings.lateFineBase} base + Rs.{globalSettings.lateFinePer30Min}/30 min after grace
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         {/* Status Card */}
         <Card>

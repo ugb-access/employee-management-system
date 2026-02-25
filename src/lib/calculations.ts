@@ -51,7 +51,8 @@ export function getNowPKT(): Date {
 
 /**
  * Calculate late arrival fine
- * Base fine + additional fine per 30 minutes
+ * Grace period: no fine if within grace period minutes
+ * Base fine + additional fine per 30 minutes after grace period
  */
 export function calculateLateFine(
   checkInTime: Date,
@@ -63,13 +64,18 @@ export function calculateLateFine(
   assignedTime.setHours(hours, minutes, 0, 0)
 
   const lateMinutes = Math.max(0, differenceInMinutes(checkInTime, assignedTime))
+  const gracePeriod = settings.gracePeriodMinutes ?? 0
 
-  if (lateMinutes === 0) {
-    return { lateMinutes: 0, fineAmount: 0 }
+  // If within grace period, no fine
+  if (lateMinutes <= gracePeriod) {
+    return { lateMinutes, fineAmount: 0 }
   }
 
-  // Base fine + additional fine for every 30 minutes
-  const fineAmount = settings.lateFineBase + Math.floor(lateMinutes / 30) * settings.lateFinePer30Min
+  // Calculate fine based on minutes after grace period
+  const minutesAfterGrace = lateMinutes - gracePeriod
+
+  // Base fine + additional fine for every 30 minutes after grace period
+  const fineAmount = settings.lateFineBase + Math.floor(minutesAfterGrace / 30) * settings.lateFinePer30Min
 
   return { lateMinutes, fineAmount }
 }

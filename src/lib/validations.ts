@@ -9,16 +9,22 @@ export const createEmployeeSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   designation: z.string().min(2, 'Designation is required'),
-  employeeId: z.string().min(1, 'Employee ID is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  joinedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
   checkInTime: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format (HH:MM)').optional(),
   checkOutTime: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format (HH:MM)').optional(),
   requiredWorkHours: z.number().min(1).max(24).optional(),
 })
 
+export const employeeLoginSchema = z.object({
+  employeeId: z.string().min(1, 'Employee ID is required'),
+  accessKey: z.string().min(1, 'Access key is required'),
+})
+
 export const updateEmployeeSchema = createEmployeeSchema.partial().extend({
   id: z.string(),
   isActive: z.boolean().optional(),
+  regenerateAccessKey: z.boolean().optional(),
 })
 
 export const checkInSchema = z.object({
@@ -74,6 +80,7 @@ export const offDaySchema = z.object({
 })
 
 export type LoginInput = z.infer<typeof loginSchema>
+export type EmployeeLoginInput = z.infer<typeof employeeLoginSchema>
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>
 export type CheckInInput = z.infer<typeof checkInSchema>

@@ -16,6 +16,8 @@ model User {
   role        Role          @default(EMPLOYEE)
   designation String?
   employeeId  String?       @unique
+  accessKey   String?       @unique
+  joinedDate  DateTime?     @db.Date
   isActive    Boolean       @default(true)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -41,6 +43,7 @@ model GlobalSettings {
   checkInTime        String    @default("09:00")
   checkOutTime       String    @default("17:00")
   requiredWorkHours  Float     @default(8.0)
+  gracePeriodMinutes Int       @default(15)
   lateFineBase       Int       @default(250)
   lateFinePer30Min   Int       @default(250)
   leaveCost          Int       @default(1000)

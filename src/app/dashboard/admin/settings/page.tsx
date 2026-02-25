@@ -40,6 +40,7 @@ interface GlobalSettings {
   checkInTime: string
   checkOutTime: string
   requiredWorkHours: number
+  gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
   leaveCost: number
@@ -83,6 +84,7 @@ export default function AdminSettingsPage() {
     checkInTime: '09:00',
     checkOutTime: '17:00',
     requiredWorkHours: 8,
+    gracePeriodMinutes: 15,
     lateFineBase: 250,
     lateFinePer30Min: 250,
     leaveCost: 1000,
@@ -131,6 +133,7 @@ export default function AdminSettingsPage() {
           checkInTime: settingsData.settings.checkInTime,
           checkOutTime: settingsData.settings.checkOutTime,
           requiredWorkHours: settingsData.settings.requiredWorkHours,
+          gracePeriodMinutes: settingsData.settings.gracePeriodMinutes ?? 15,
           lateFineBase: settingsData.settings.lateFineBase,
           lateFinePer30Min: settingsData.settings.lateFinePer30Min,
           leaveCost: settingsData.settings.leaveCost,
@@ -361,6 +364,26 @@ export default function AdminSettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="gracePeriodMinutes">Grace Period (minutes)</Label>
+                    <Input
+                      id="gracePeriodMinutes"
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={formData.gracePeriodMinutes}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          gracePeriodMinutes: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      No fine if arriving within this time after check-in
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="lateFineBase">Late Fine Base (Rs.)</Label>
                     <Input

@@ -52,6 +52,7 @@ export interface GlobalSettingsData {
   checkInTime: string
   checkOutTime: string
   requiredWorkHours: number
+  gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
   leaveCost: number

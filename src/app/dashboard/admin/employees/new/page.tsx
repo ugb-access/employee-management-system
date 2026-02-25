@@ -13,27 +13,67 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Copy, Check } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
+
+interface CreatedCredentials {
+  employeeId: string
+  accessKey: string
+}
 
 export default function NewEmployeePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
+  const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     designation: '',
-    employeeId: '',
+    joinedDate: '',
     checkInTime: '',
     checkOutTime: '',
     requiredWorkHours: '',
   })
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch {
+      console.error('Failed to copy')
+    }
+  }
+
+  const handleCreateAnother = () => {
+    setShowCredentialsDialog(false)
+    setCreatedCredentials(null)
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      designation: '',
+      joinedDate: '',
+      checkInTime: '',
+      checkOutTime: '',
+      requiredWorkHours: '',
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,7 +91,7 @@ export default function NewEmployeePage() {
           email: formData.email,
           password: formData.password,
           designation: formData.designation,
-          employeeId: formData.employeeId,
+          joinedDate: formData.joinedDate || undefined,
           checkInTime: formData.checkInTime || undefined,
           checkOutTime: formData.checkOutTime || undefined,
           requiredWorkHours: formData.requiredWorkHours
@@ -66,7 +106,12 @@ export default function NewEmployeePage() {
         throw new Error(data.error || 'Failed to create employee')
       }
 
-      router.push('/dashboard/admin/employees')
+      // Show credentials dialog
+      setCreatedCredentials({
+        employeeId: data.employee.employeeId,
+        accessKey: data.employee.accessKey,
+      })
+      setShowCredentialsDialog(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create employee')
     } finally {
@@ -114,7 +159,7 @@ export default function NewEmployeePage() {
           <CardHeader>
             <CardTitle>Employee Information</CardTitle>
             <CardDescription>
-              Enter the details for the new employee. All fields marked with * are required.
+              Enter the details for the new employee. Employee ID and Access Key will be auto-generated.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -163,19 +208,6 @@ export default function NewEmployeePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="employeeId">Employee ID *</Label>
-                  <Input
-                    id="employeeId"
-                    placeholder="EMP001"
-                    value={formData.employeeId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, employeeId: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="designation">Designation *</Label>
                   <Input
                     id="designation"
@@ -186,6 +218,21 @@ export default function NewEmployeePage() {
                     }
                     required
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="joinedDate">Joined Date</Label>
+                  <Input
+                    id="joinedDate"
+                    type="date"
+                    value={formData.joinedDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, joinedDate: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank to use account creation date
+                  </p>
                 </div>
               </div>
 
@@ -255,6 +302,78 @@ export default function NewEmployeePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Credentials Dialog */}
+      <Dialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Employee Created Successfully!</DialogTitle>
+            <DialogDescription>
+              Save these credentials. The employee will need them to log in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Employee ID</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={createdCredentials?.employeeId || ''}
+                  className="font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyToClipboard(createdCredentials?.employeeId || '', 'employeeId')}
+                >
+                  {copiedField === 'employeeId' ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Access Key</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={createdCredentials?.accessKey || ''}
+                  className="font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => copyToClipboard(createdCredentials?.accessKey || '', 'accessKey')}
+                >
+                  {copiedField === 'accessKey' ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-muted p-3 rounded-md text-sm text-muted-foreground">
+              <strong>Note:</strong> The employee can log in using Employee Login on the login page with these credentials.
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCreateAnother}>
+                Create Another
+              </Button>
+              <Button onClick={() => router.push('/dashboard/admin/employees')}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

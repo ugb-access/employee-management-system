@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { updateEmployeeSchema } from '@/lib/validations'
+import { generateAccessKey } from '@/lib/access-key'
 import { hash } from 'bcryptjs'
 import { NextResponse } from 'next/server'
 
@@ -84,40 +85,32 @@ export async function PUT(
       }
     }
 
-    // Check employeeId uniqueness if changing
-    if (validatedData.employeeId && validatedData.employeeId !== existingEmployee.employeeId) {
-      const idExists = await prisma.user.findFirst({
-        where: {
-          employeeId: validatedData.employeeId,
-          NOT: { id },
-        },
-      })
-      if (idExists) {
-        return NextResponse.json(
-          { error: 'Employee ID already in use' },
-          { status: 400 }
-        )
-      }
-    }
-
     // Prepare update data
     const updateData: {
       email?: string
       name?: string
       designation?: string
-      employeeId?: string
       password?: string
       isActive?: boolean
+      accessKey?: string
+      joinedDate?: Date | null
     } = {}
 
     if (validatedData.email) updateData.email = validatedData.email
     if (validatedData.name) updateData.name = validatedData.name
     if (validatedData.designation) updateData.designation = validatedData.designation
-    if (validatedData.employeeId) updateData.employeeId = validatedData.employeeId
     if (validatedData.password) {
       updateData.password = await hash(validatedData.password, 10)
     }
     if (validatedData.isActive !== undefined) updateData.isActive = validatedData.isActive
+    if (validatedData.joinedDate !== undefined) {
+      updateData.joinedDate = validatedData.joinedDate ? new Date(validatedData.joinedDate) : null
+    }
+
+    // Regenerate access key if requested
+    if (validatedData.regenerateAccessKey) {
+      updateData.accessKey = generateAccessKey()
+    }
 
     // Update employee
     const employee = await prisma.user.update({
@@ -156,6 +149,7 @@ export async function PUT(
         name: employee.name,
         designation: employee.designation,
         employeeId: employee.employeeId,
+        accessKey: employee.accessKey,
         isActive: employee.isActive,
       },
     })

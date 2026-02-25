@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { createEmployeeSchema } from '@/lib/validations'
+import { generateAccessKey, generateEmployeeId } from '@/lib/access-key'
 import { hash } from 'bcryptjs'
 import { NextResponse } from 'next/server'
 
@@ -115,17 +116,9 @@ export async function POST(req: Request) {
       )
     }
 
-    // Check if employeeId already exists
-    const existingEmployeeId = await prisma.user.findFirst({
-      where: { employeeId: validatedData.employeeId },
-    })
-
-    if (existingEmployeeId) {
-      return NextResponse.json(
-        { error: 'Employee ID already in use' },
-        { status: 400 }
-      )
-    }
+    // Auto-generate employee ID and access key
+    const employeeId = await generateEmployeeId()
+    const accessKey = generateAccessKey()
 
     // Hash password
     const hashedPassword = await hash(validatedData.password, 10)
@@ -137,8 +130,10 @@ export async function POST(req: Request) {
         password: hashedPassword,
         name: validatedData.name,
         designation: validatedData.designation,
-        employeeId: validatedData.employeeId,
+        employeeId,
+        accessKey,
         role: 'EMPLOYEE',
+        joinedDate: validatedData.joinedDate ? new Date(validatedData.joinedDate) : null,
         settings: validatedData.checkInTime || validatedData.checkOutTime || validatedData.requiredWorkHours
           ? {
               create: {
@@ -162,6 +157,7 @@ export async function POST(req: Request) {
         name: employee.name,
         designation: employee.designation,
         employeeId: employee.employeeId,
+        accessKey: employee.accessKey,
         isActive: employee.isActive,
         settings: employee.settings,
       },

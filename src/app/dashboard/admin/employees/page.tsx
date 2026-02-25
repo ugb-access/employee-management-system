@@ -36,7 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Trash2, Eye, Search, ChevronLeft, ChevronRight, Loader2, UserCheck, UserX } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
 
@@ -115,26 +115,31 @@ export default function EmployeesPage() {
     setPage(1)
   }
 
-  const handleDeactivate = async (employeeId: string, employeeName: string) => {
-    if (!confirm(`Are you sure you want to deactivate ${employeeName}?`)) {
+  const handleToggleStatus = async (employeeId: string, employeeName: string, currentStatus: boolean) => {
+    const action = currentStatus ? 'deactivate' : 'activate'
+    if (!confirm(`Are you sure you want to ${action} ${employeeName}?`)) {
       return
     }
 
     try {
       const response = await fetch(`/api/employees/${employeeId}`, {
-        method: 'DELETE',
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isActive: !currentStatus }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to deactivate employee')
+        throw new Error(data.error || `Failed to ${action} employee`)
       }
 
-      toast.success('Employee deactivated successfully')
+      toast.success(`Employee ${action}d successfully`)
       fetchEmployees()
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to deactivate employee')
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} employee`)
     }
   }
 
@@ -269,13 +274,23 @@ export default function EmployeesPage() {
                                   Edit
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleDeactivate(employee.id, employee.name || 'employee')}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Deactivate
-                              </DropdownMenuItem>
+                              {employee.isActive ? (
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleToggleStatus(employee.id, employee.name || 'employee', employee.isActive)}
+                                >
+                                  <UserX className="mr-2 h-4 w-4" />
+                                  Deactivate
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  className="text-green-600"
+                                  onClick={() => handleToggleStatus(employee.id, employee.name || 'employee', employee.isActive)}
+                                >
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Activate
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

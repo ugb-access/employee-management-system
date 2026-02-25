@@ -10,36 +10,76 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        loginType: { label: 'Login Type', type: 'text' },
+        employeeId: { label: 'Employee ID', type: 'text' },
+        accessKey: { label: 'Access Key', type: 'text' },
       },
       authorize: async (credentials) => {
-        const parsedCredentials = z
-          .object({ email: z.string().email(), password: z.string().min(6) })
-          .safeParse(credentials)
+        const loginType = (credentials as Record<string, string>).loginType
 
-        if (!parsedCredentials.success) return null
+        if (loginType === 'employee') {
+          // Employee login: employeeId + accessKey
+          const parsed = z
+            .object({
+              employeeId: z.string().min(1),
+              accessKey: z.string().min(1),
+            })
+            .safeParse(credentials)
 
-        const { email, password } = parsedCredentials.data
+          if (!parsed.success) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            settings: true,
-          },
-        })
+          const { employeeId, accessKey } = parsed.data
 
-        if (!user || !user.isActive) return null
+          const user = await prisma.user.findFirst({
+            where: {
+              employeeId,
+              role: 'EMPLOYEE',
+            },
+          })
 
-        const passwordsMatch = await compare(password, user.password)
+          if (!user || !user.isActive || !user.accessKey) return null
 
-        if (!passwordsMatch) return null
+          if (user.accessKey !== accessKey) return null
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          designation: user.designation,
-          employeeId: user.employeeId,
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            designation: user.designation,
+            employeeId: user.employeeId,
+          }
+        } else {
+          // Admin login: email + password
+          const parsed = z
+            .object({
+              email: z.string().email(),
+              password: z.string().min(6),
+            })
+            .safeParse(credentials)
+
+          if (!parsed.success) return null
+
+          const { email, password } = parsed.data
+
+          const user = await prisma.user.findUnique({
+            where: { email },
+          })
+
+          if (!user || !user.isActive) return null
+
+          const passwordsMatch = await compare(password, user.password)
+
+          if (!passwordsMatch) return null
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            designation: user.designation,
+            employeeId: user.employeeId,
+          }
         }
       },
     }),
