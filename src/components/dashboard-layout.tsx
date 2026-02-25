@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -82,7 +83,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center border-b px-6">
-            <h1 className="text-xl font-bold text-primary">EMS</h1>
+            <div className="flex items-center gap-2">
+              <Image
+                src="/icon.svg"
+                alt="EMS Logo"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold text-primary leading-tight">EMS</h1>
+                <span className="text-xs text-muted-foreground">
+                  {userRole === 'ADMIN' ? 'Admin Dashboard' : 'Employee Portal'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Navigation */}

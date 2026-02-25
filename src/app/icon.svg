@@ -1,0 +1,28 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4ade80"/>
+      <stop offset="100%" style="stop-color:#22c55e"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.3)"/>
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="32" height="32" rx="7" fill="url(#bgGrad)"/>
+  <!-- Shine effect -->
+  <rect width="32" height="16" rx="7" fill="url(#shine)"/>
+  <!-- Stylized people/team icon -->
+  <g fill="white">
+    <!-- Center person (larger) -->
+    <circle cx="16" cy="10" r="3.5"/>
+    <path d="M10 24C10 19.5817 12.6863 16 16 16C19.3137 16 22 19.5817 22 24H10Z"/>
+    <!-- Left person (smaller, offset back) -->
+    <circle cx="7" cy="12" r="2.5" fill-opacity="0.7"/>
+    <path d="M3 24C3 20.6863 5.68629 18 9 18L10 24H3Z" fill-opacity="0.7"/>
+    <!-- Right person (smaller, offset back) -->
+    <circle cx="25" cy="12" r="2.5" fill-opacity="0.7"/>
+    <path d="M22 24L23 18C26.3137 18 29 20.6863 29 24H22Z" fill-opacity="0.7"/>
+  </g>
+</svg>

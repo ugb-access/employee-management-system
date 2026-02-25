@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -59,7 +60,16 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Image
+              src="/icon.svg"
+              alt="EMS Logo"
+              width={48}
+              height={48}
+              className="h-12 w-12"
+            />
+          </div>
+          <CardTitle className="text-2xl font-bold text-center text-primary">
             Employee Management
           </CardTitle>
           <CardDescription className="text-center">
