@@ -23,7 +23,10 @@ export function getTodayPKT(): Date {
 }
 
 /**
- * Get current time in PKT as a Date object with correct PKT hours/minutes.
+ * Get current time in PKT as a Date object.
+ * Returns a UTC Date that represents the PKT time correctly.
+ * PKT is UTC+5, so we subtract 5 hours from the PKT time to get UTC.
+ * When displayed with toLocaleTimeString in PKT timezone, it shows the correct time.
  */
 export function getNowPKT(): Date {
   const now = new Date()
@@ -39,14 +42,21 @@ export function getNowPKT(): Date {
   }).formatToParts(now)
 
   const get = (type: string) => pktParts.find(p => p.type === type)?.value || '0'
-  return new Date(
-    parseInt(get('year')),
-    parseInt(get('month')) - 1,
-    parseInt(get('day')),
-    parseInt(get('hour')),
-    parseInt(get('minute')),
-    parseInt(get('second'))
-  )
+  const year = parseInt(get('year'))
+  const month = parseInt(get('month')) - 1
+  const day = parseInt(get('day'))
+  const hour = parseInt(get('hour'))
+  const minute = parseInt(get('minute'))
+  const second = parseInt(get('second'))
+
+  // Create a date string in ISO format and parse as UTC
+  // This ensures the time is stored as UTC representing the PKT time
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`
+
+  // Parse as local time, then convert to UTC by subtracting 5 hours (PKT offset)
+  const localDate = new Date(dateStr)
+  // Subtract 5 hours to convert PKT to UTC for storage
+  return new Date(localDate.getTime() - (5 * 60 * 60 * 1000))
 }
 
 /**
