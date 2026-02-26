@@ -115,16 +115,20 @@ export async function PUT(
     }
 
     // Handle check-in time update
+    // Admin enters time in PKT, we need to store as UTC (PKT = UTC+5)
     if (validatedData.checkInTime) {
       const [hours, minutes] = validatedData.checkInTime.split(':').map(Number)
       const newCheckIn = new Date(attendance.date)
-      newCheckIn.setHours(hours, minutes, 0, 0)
+      // Store as UTC by subtracting 5 hours (PKT offset)
+      newCheckIn.setUTCHours(hours - 5, minutes, 0, 0)
       updateData.checkInTime = newCheckIn
       updateData.checkInReason = validatedData.checkInReason || attendance.checkInReason
 
-      // Recalculate late fine
+      // Recalculate late fine - create a comparison date in the same "local" context
+      const compareTime = new Date(attendance.date)
+      compareTime.setHours(hours, minutes, 0, 0)
       const { lateMinutes, fineAmount } = calculateLateFine(
-        newCheckIn,
+        compareTime,
         settings.checkInTime,
         globalSettingsData
       )
@@ -136,7 +140,8 @@ export async function PUT(
     if (validatedData.checkOutTime) {
       const [hours, minutes] = validatedData.checkOutTime.split(':').map(Number)
       const newCheckOut = new Date(attendance.date)
-      newCheckOut.setHours(hours, minutes, 0, 0)
+      // Store as UTC by subtracting 5 hours (PKT offset)
+      newCheckOut.setUTCHours(hours - 5, minutes, 0, 0)
       updateData.checkOutTime = newCheckOut
       updateData.checkOutReason = validatedData.checkOutReason || attendance.checkOutReason
 

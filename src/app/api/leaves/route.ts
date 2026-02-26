@@ -93,12 +93,24 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const validatedData = leaveRequestSchema.parse(body)
+    const validationResult = leaveRequestSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: validationResult.error.issues[0].message },
+        { status: 400 }
+      )
+    }
+
+    const validatedData = validationResult.data
 
     // Check if date is in the future (use PKT timezone for consistent comparison)
     const today = getTodayPKT()
-    // Parse the date string as UTC to match database storage
-    const leaveDate = new Date(validatedData.date + 'T00:00:00.000Z')
+    // Handle date - validatedData.date could be a Date object or string
+    const dateValue = validatedData.date
+    const leaveDate = dateValue instanceof Date
+      ? new Date(dateValue.toISOString().split('T')[0] + 'T00:00:00.000Z')
+      : new Date(dateValue + 'T00:00:00.000Z')
 
     // Compare dates by their time values (both are at midnight UTC)
     if (leaveDate.getTime() <= today.getTime()) {
@@ -180,8 +192,9 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Create leave error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create leave request'
     return NextResponse.json(
-      { error: 'Failed to create leave request' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

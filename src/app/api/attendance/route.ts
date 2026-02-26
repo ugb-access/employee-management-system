@@ -145,18 +145,20 @@ export async function POST(req: Request) {
 
     const settings = user?.settings || globalSettings
 
-    // Parse check-in time
+    // Parse check-in time - admin enters PKT time, store as UTC (PKT = UTC+5)
     const [inHours, inMinutes] = validatedData.checkInTime.split(':').map(Number)
     const checkInTime = new Date(attendanceDate)
-    checkInTime.setHours(inHours, inMinutes, 0, 0)
+    checkInTime.setUTCHours(inHours - 5, inMinutes, 0, 0)
 
-    // Calculate late fine
+    // Calculate late fine - use local time for comparison
+    const compareTime = new Date(attendanceDate)
+    compareTime.setHours(inHours, inMinutes, 0, 0)
     const settingsData = {
       ...globalSettings,
       workingDays: globalSettings.workingDays.split(',').map(Number),
     }
     const { lateMinutes, fineAmount } = calculateLateFine(
-      checkInTime,
+      compareTime,
       settings.checkInTime,
       settingsData
     )
@@ -188,13 +190,16 @@ export async function POST(req: Request) {
     if (validatedData.checkOutTime) {
       const [outHours, outMinutes] = validatedData.checkOutTime.split(':').map(Number)
       const checkOutTime = new Date(attendanceDate)
-      checkOutTime.setHours(outHours, outMinutes, 0, 0)
+      // Store as UTC by subtracting 5 hours (PKT offset)
+      checkOutTime.setUTCHours(outHours - 5, outMinutes, 0, 0)
 
       attendanceData.checkOutTime = checkOutTime
       attendanceData.checkOutReason = validatedData.checkOutReason
 
-      // Calculate early minutes
-      const earlyMinutes = calculateEarlyMinutes(checkOutTime, settings.checkOutTime)
+      // Calculate early minutes - use local time for comparison
+      const compareTime = new Date(attendanceDate)
+      compareTime.setHours(outHours, outMinutes, 0, 0)
+      const earlyMinutes = calculateEarlyMinutes(compareTime, settings.checkOutTime)
       attendanceData.earlyMinutes = earlyMinutes
 
       // Calculate total hours

@@ -45,7 +45,7 @@ export const editAttendanceSchema = z.object({
 export const leaveRequestSchema = z.object({
   date: z.coerce.date(),
   reason: z.string().min(10, 'Reason must be at least 10 characters'),
-  leaveType: z.enum(['PAID', 'UNPAID', 'SICK', 'CASUAL']),
+  leaveType: z.enum(['PAID', 'UNPAID', 'SICK', 'CASUAL']).optional().default('UNPAID'),
 })
 
 export const approveLeaveSchema = z.object({
