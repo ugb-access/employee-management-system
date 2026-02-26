@@ -32,7 +32,7 @@ export const checkInSchema = z.object({
 })
 
 export const checkOutSchema = z.object({
-  reason: z.string().min(5, 'Reason must be at least 5 characters'),
+  reason: z.string().min(5, 'Reason must be at least 5 characters').optional(),
 })
 
 export const editAttendanceSchema = z.object({
