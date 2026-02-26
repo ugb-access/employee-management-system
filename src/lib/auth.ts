@@ -5,6 +5,9 @@ import { prisma } from './prisma'
 import { z } from 'zod'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Required for Vercel and other proxy environments where the Host header
+  // comes from the load balancer rather than the original request.
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {

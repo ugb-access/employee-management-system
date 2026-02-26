@@ -3,7 +3,21 @@ import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  // NextAuth v5 (Auth.js) changed the session cookie name from
+  // "next-auth.session-token" to "authjs.session-token".
+  // On HTTPS (production/Vercel) the __Secure- prefix is added.
+  const secureCookies = req.nextUrl.protocol === 'https:'
+  const cookieName = secureCookies
+    ? '__Secure-authjs.session-token'
+    : 'authjs.session-token'
+
+  const token = await getToken({
+    req,
+    // NextAuth v5 reads AUTH_SECRET; fall back to NEXTAUTH_SECRET for compat
+    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    cookieName,
+    salt: cookieName,
+  })
   const isLoggedIn = !!token
   const { pathname } = req.nextUrl
 
