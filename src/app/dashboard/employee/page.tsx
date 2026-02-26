@@ -213,14 +213,8 @@ export default function EmployeeDashboardPage() {
   }
 
   const handleCheckOut = () => {
-    const early = calculateEarlyMinutes()
-    if (early > 0) {
-      setEarlyMinutesState(early)
-      setEarlyReason('')
-      setEarlyCheckoutDialog(true)
-    } else {
-      performCheckOut()
-    }
+    // Let the server determine if it's early checkout
+    performCheckOut()
   }
 
   const performCheckOut = async (reason?: string) => {
@@ -236,6 +230,14 @@ export default function EmployeeDashboardPage() {
       const data = await res.json()
 
       if (!res.ok) {
+        // If early checkout reason is required, show the dialog
+        if (data.requiresReason && data.earlyMinutes) {
+          setEarlyMinutesState(data.earlyMinutes)
+          setEarlyReason('')
+          setEarlyCheckoutDialog(true)
+          setCheckOutLoading(false)
+          return
+        }
         toast.error(data.error || 'Failed to check out')
         return
       }

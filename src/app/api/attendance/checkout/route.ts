@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     // Require reason for early checkout
     if (earlyMinutes > 0 && !reason) {
       return NextResponse.json(
-        { error: 'Reason is required for early checkout' },
+        { error: 'Reason is required for early checkout', earlyMinutes, requiresReason: true },
         { status: 400 }
       )
     }

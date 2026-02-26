@@ -25,8 +25,8 @@ export function getTodayPKT(): Date {
 /**
  * Get current time in PKT as a Date object.
  * Returns a UTC Date that represents the PKT time correctly.
- * PKT is UTC+5, so we subtract 5 hours from the PKT time to get UTC.
- * When displayed with toLocaleTimeString in PKT timezone, it shows the correct time.
+ * PKT is UTC+5, so if it's 10:00 PKT, we store 05:00 UTC.
+ * When displayed with formatTime (PKT timezone), it shows the correct time.
  */
 export function getNowPKT(): Date {
   const now = new Date()
@@ -43,20 +43,36 @@ export function getNowPKT(): Date {
 
   const get = (type: string) => pktParts.find(p => p.type === type)?.value || '0'
   const year = parseInt(get('year'))
-  const month = parseInt(get('month')) - 1
+  const month = parseInt(get('month')) - 1  // JavaScript months are 0-indexed
   const day = parseInt(get('day'))
   const hour = parseInt(get('hour'))
   const minute = parseInt(get('minute'))
   const second = parseInt(get('second'))
 
-  // Create a date string in ISO format and parse as UTC
-  // This ensures the time is stored as UTC representing the PKT time
-  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`
+  // Create UTC date directly using Date.UTC
+  // PKT is UTC+5, so subtract 5 hours from PKT time to get UTC
+  let utcHour = hour - 5
+  let utcDay = day
+  let utcMonth = month
+  let utcYear = year
 
-  // Parse as local time, then convert to UTC by subtracting 5 hours (PKT offset)
-  const localDate = new Date(dateStr)
-  // Subtract 5 hours to convert PKT to UTC for storage
-  return new Date(localDate.getTime() - (5 * 60 * 60 * 1000))
+  // Handle day rollover
+  if (utcHour < 0) {
+    utcHour += 24
+    utcDay -= 1
+    // Handle month/year rollover if needed
+    if (utcDay < 1) {
+      utcMonth -= 1
+      if (utcMonth < 0) {
+        utcMonth = 11
+        utcYear -= 1
+      }
+      // Get last day of previous month
+      utcDay = new Date(utcYear, utcMonth + 1, 0).getDate()
+    }
+  }
+
+  return new Date(Date.UTC(utcYear, utcMonth, utcDay, utcHour, minute, second))
 }
 
 /**
@@ -167,11 +183,37 @@ export function isWorkingDay(date: Date, workingDays: number[]): boolean {
 }
 
 /**
- * Format time for display
+ * Format time for display in PKT timezone (12-hour format)
  */
-export function formatTime(date: Date | null): string {
+export function formatTime(date: Date | string | null): string {
   if (!date) return '--:--'
-  return format(date, 'HH:mm')
+  // Always display in PKT timezone with 12-hour format
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: PKT_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(date))
+}
+
+/**
+ * Extract time string (HH:MM) in PKT timezone from a UTC date
+ * Use this for populating time input fields in forms
+ */
+export function formatTimeForInput(date: Date | string | null): string {
+  if (!date) return ''
+  const d = new Date(date)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PKT_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+
+  const hour = parts.find(p => p.type === 'hour')?.value || '00'
+  const minute = parts.find(p => p.type === 'minute')?.value || '00'
+
+  return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
 }
 
 /**

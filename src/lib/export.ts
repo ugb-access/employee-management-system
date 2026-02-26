@@ -1,5 +1,7 @@
 // CSV Export utility functions
 
+const PKT_TIMEZONE = 'Asia/Karachi'
+
 export interface ExportColumn<T> {
   header: string
   accessor: keyof T | ((row: T) => string | number | null)
@@ -76,8 +78,10 @@ export function formatDateForExport(date: string | Date | null): string {
 export function formatTimeForExport(date: string | Date | null): string {
   if (!date) return ''
   const d = new Date(date)
-  return d.toLocaleTimeString('en-US', {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: PKT_TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
-  })
+    hour12: false,
+  }).format(d)
 }

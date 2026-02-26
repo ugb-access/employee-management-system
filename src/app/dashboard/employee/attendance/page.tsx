@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, TrendingUp, AlertTriangle } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
 import { DateFilter, DateFilterValue, getCurrentMonthRange } from '@/components/date-filter'
+import { formatTime } from '@/lib/calculations'
 
 interface Attendance {
   id: string
@@ -107,14 +108,6 @@ export default function EmployeeAttendancePage() {
       setInitialLoading(false)
     }
   }, [dateFilter.startDate, dateFilter.endDate])
-
-  const formatTime = (date: string | Date | null) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
 
   const formatHours = (hours: number | null) => {
     if (!hours) return '-'

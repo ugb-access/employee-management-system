@@ -42,7 +42,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Pencil, Loader2, Download, Plus } from 'lucide-react'
 import { exportToCSV, formatDateForExport, formatTimeForExport } from '@/lib/export'
-import { formatLocalDate } from '@/lib/calculations'
+import { formatLocalDate, formatTime, formatTimeForInput } from '@/lib/calculations'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
 
@@ -168,12 +168,8 @@ export default function AdminAttendancePage() {
   const openEditDialog = (record: Attendance) => {
     setEditingAttendance(record)
     setEditForm({
-      checkInTime: record.checkInTime
-        ? new Date(record.checkInTime).toTimeString().slice(0, 5)
-        : '',
-      checkOutTime: record.checkOutTime
-        ? new Date(record.checkOutTime).toTimeString().slice(0, 5)
-        : '',
+      checkInTime: formatTimeForInput(record.checkInTime),
+      checkOutTime: formatTimeForInput(record.checkOutTime),
       checkInReason: record.checkInReason || '',
       checkOutReason: record.checkOutReason || '',
     })
@@ -284,14 +280,6 @@ export default function AdminAttendancePage() {
     } finally {
       setManualSubmitting(false)
     }
-  }
-
-  const formatTime = (date: string | Date | null) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
   }
 
   const formatHours = (hours: number | null) => {
