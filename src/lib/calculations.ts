@@ -79,17 +79,36 @@ export function getNowPKT(): Date {
  * Calculate late arrival fine
  * Grace period: no fine if within grace period minutes
  * Base fine + additional fine per 30 minutes after grace period
+ * All time comparisons done in PKT timezone
  */
 export function calculateLateFine(
   checkInTime: Date,
   assignedCheckInTime: string,
   settings: GlobalSettingsData
 ): { lateMinutes: number; fineAmount: number } {
-  const [hours, minutes] = assignedCheckInTime.split(':').map(Number)
-  const assignedTime = new Date(checkInTime)
-  assignedTime.setHours(hours, minutes, 0, 0)
+  // Get PKT time parts from the checkInTime
+  const pktParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PKT_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(checkInTime)
 
-  const lateMinutes = Math.max(0, differenceInMinutes(checkInTime, assignedTime))
+  const get = (type: string) => pktParts.find(p => p.type === type)?.value || '0'
+  const checkInHour = parseInt(get('hour'))
+  const checkInMinute = parseInt(get('minute'))
+
+  // Parse assigned check-in time (in PKT)
+  const [assignedHour, assignedMinute] = assignedCheckInTime.split(':').map(Number)
+
+  // Calculate difference in minutes (positive means late)
+  const checkInTotalMinutes = checkInHour * 60 + checkInMinute
+  const assignedTotalMinutes = assignedHour * 60 + assignedMinute
+
+  const lateMinutes = Math.max(0, checkInTotalMinutes - assignedTotalMinutes)
   const gracePeriod = settings.gracePeriodMinutes ?? 0
 
   // If within grace period, no fine
@@ -108,16 +127,35 @@ export function calculateLateFine(
 
 /**
  * Calculate early checkout minutes
+ * All time comparisons done in PKT timezone
  */
 export function calculateEarlyMinutes(
   checkOutTime: Date,
   assignedCheckOutTime: string
 ): number {
-  const [hours, minutes] = assignedCheckOutTime.split(':').map(Number)
-  const assignedTime = new Date(checkOutTime)
-  assignedTime.setHours(hours, minutes, 0, 0)
+  // Get PKT time parts from the checkOutTime
+  const pktParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: PKT_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(checkOutTime)
 
-  return Math.max(0, differenceInMinutes(assignedTime, checkOutTime))
+  const get = (type: string) => pktParts.find(p => p.type === type)?.value || '0'
+  const checkOutHour = parseInt(get('hour'))
+  const checkOutMinute = parseInt(get('minute'))
+
+  // Parse assigned checkout time (in PKT)
+  const [assignedHour, assignedMinute] = assignedCheckOutTime.split(':').map(Number)
+
+  // Calculate difference in minutes (positive means checked out early)
+  const checkOutTotalMinutes = checkOutHour * 60 + checkOutMinute
+  const assignedTotalMinutes = assignedHour * 60 + assignedMinute
+
+  return Math.max(0, assignedTotalMinutes - checkOutTotalMinutes)
 }
 
 /**
