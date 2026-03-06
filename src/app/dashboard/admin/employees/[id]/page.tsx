@@ -16,7 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Pencil, Mail, Briefcase, Clock, IdCard, Key, Copy, Check, RefreshCw, Loader2, Calendar, UserPlus } from 'lucide-react'
+import { ArrowLeft, Pencil, Mail, Briefcase, Clock, IdCard, Key, Copy, Check, RefreshCw, Loader2, Calendar, UserPlus, ClipboardList } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
 
 interface EmployeeSettings {
@@ -169,12 +169,20 @@ export default function EmployeeDetailsPage() {
               <p className="text-muted-foreground">{employee.designation}</p>
             </div>
           </div>
-          <Link href={`/dashboard/admin/employees/${employee.id}/edit`}>
-            <Button>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit Employee
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/dashboard/admin/employees/${employee.id}/attendance`}>
+              <Button variant="outline">
+                <ClipboardList className="mr-2 h-4 w-4" />
+                View Attendance
+              </Button>
+            </Link>
+            <Link href={`/dashboard/admin/employees/${employee.id}/edit`}>
+              <Button>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Employee
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
