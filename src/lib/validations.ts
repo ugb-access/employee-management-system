@@ -49,6 +49,13 @@ export const leaveRequestSchema = z.object({
   leaveType: z.enum(['PAID', 'UNPAID', 'SICK', 'CASUAL']).optional().default('UNPAID'),
 })
 
+export const adminLeaveCreateSchema = z.object({
+  userId: z.string().min(1),
+  date: z.coerce.date(),
+  reason: z.string().min(10, 'Reason must be at least 10 characters'),
+  leaveType: z.enum(['PAID', 'UNPAID', 'SICK', 'CASUAL']).default('UNPAID'),
+})
+
 export const approveLeaveSchema = z.object({
   leaveId: z.string(),
   status: z.enum(['APPROVED', 'REJECTED']),
@@ -93,3 +100,4 @@ export type ApproveLeaveInput = z.infer<typeof approveLeaveSchema>
 export type GlobalSettingsInput = z.infer<typeof globalSettingsSchema>
 export type HolidayInput = z.infer<typeof holidaySchema>
 export type OffDayInput = z.infer<typeof offDaySchema>
+export type AdminLeaveCreateInput = z.infer<typeof adminLeaveCreateSchema>

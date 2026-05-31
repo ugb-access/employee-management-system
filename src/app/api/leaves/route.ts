@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { leaveRequestSchema } from '@/lib/validations'
+import { leaveRequestSchema, adminLeaveCreateSchema } from '@/lib/validations'
 import { getTodayPKT, getISOWeekday, isWorkingDay } from '@/lib/calculations'
 import { NextResponse } from 'next/server'
 
@@ -16,10 +16,13 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
     const userId = searchParams.get('userId')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
 
     const where: {
       userId?: string
       status?: 'PENDING' | 'APPROVED' | 'REJECTED'
+      date?: { gte: Date; lte: Date }
     } = {}
 
     // Employees can only see their own leaves
@@ -32,6 +35,13 @@ export async function GET(req: Request) {
 
     if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
       where.status = status as 'PENDING' | 'APPROVED' | 'REJECTED'
+    }
+
+    if (startDate && endDate) {
+      where.date = {
+        gte: new Date(startDate + 'T00:00:00.000Z'),
+        lte: new Date(endDate + 'T00:00:00.000Z'),
+      }
     }
 
     // Fetch leaves and then manually fetch approver info
@@ -49,7 +59,7 @@ export async function GET(req: Request) {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        date: 'desc',
       },
     })
 
@@ -93,6 +103,74 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
+
+    // Admin path: immediately approved, past dates allowed, picks any employee
+    if (session.user.role === 'ADMIN') {
+      const validationResult = adminLeaveCreateSchema.safeParse(body)
+      if (!validationResult.success) {
+        return NextResponse.json(
+          { error: validationResult.error.issues[0].message },
+          { status: 400 }
+        )
+      }
+
+      const validatedData = validationResult.data
+      const leaveDate = new Date(validatedData.date.toISOString().split('T')[0] + 'T00:00:00.000Z')
+
+      // Check if leave already exists for this date
+      const existingLeave = await prisma.leave.findFirst({
+        where: {
+          userId: validatedData.userId,
+          date: leaveDate,
+          status: { not: 'REJECTED' },
+        },
+      })
+      if (existingLeave) {
+        return NextResponse.json(
+          { error: 'Leave already exists for this date' },
+          { status: 400 }
+        )
+      }
+
+      // Block if attendance already recorded for that day
+      const existingAttendance = await prisma.attendance.findUnique({
+        where: {
+          userId_date: { userId: validatedData.userId, date: leaveDate },
+        },
+      })
+      if (existingAttendance) {
+        return NextResponse.json(
+          { error: 'Employee already has an attendance record for this date' },
+          { status: 400 }
+        )
+      }
+
+      const leave = await prisma.leave.create({
+        data: {
+          userId: validatedData.userId,
+          date: leaveDate,
+          reason: validatedData.reason,
+          leaveType: validatedData.leaveType,
+          status: 'APPROVED',
+          appliedBy: session.user.id,
+          approvedBy: session.user.id,
+          approvedAt: new Date(),
+        },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        leave,
+        message: 'Leave created and approved',
+      })
+    }
+
+    // Employee path: future dates only, pending status
     const validationResult = leaveRequestSchema.safeParse(body)
 
     if (!validationResult.success) {
@@ -106,7 +184,6 @@ export async function POST(req: Request) {
 
     // Check if date is in the future (use PKT timezone for consistent comparison)
     const today = getTodayPKT()
-    // Handle date - validatedData.date could be a Date object or string
     const dateValue = validatedData.date
     const leaveDate = dateValue instanceof Date
       ? new Date(dateValue.toISOString().split('T')[0] + 'T00:00:00.000Z')
@@ -137,7 +214,6 @@ export async function POST(req: Request) {
     }
 
     // Check if it's a working day
-    // Working days are stored as ISO weekdays (1=Monday, 7=Sunday)
     const globalSettings = await prisma.globalSettings.findFirst()
     if (globalSettings) {
       const workingDays = globalSettings.workingDays.split(',').map(Number)

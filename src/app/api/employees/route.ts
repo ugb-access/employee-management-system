@@ -20,6 +20,7 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') // 'active', 'inactive', or null for all
+    const all = searchParams.get('all') === 'true'
 
     const skip = (page - 1) * PAGE_SIZE
 
@@ -68,13 +69,12 @@ export async function GET(req: Request) {
       orderBy: {
         createdAt: 'desc',
       },
-      skip,
-      take: PAGE_SIZE,
+      ...(all ? {} : { skip, take: PAGE_SIZE }),
     })
 
     return NextResponse.json({
       employees,
-      pagination: {
+      pagination: all ? null : {
         page,
         pageSize: PAGE_SIZE,
         total,
