@@ -36,6 +36,24 @@ function toTermsSettings(settings: {
   }
 }
 
+// Schema defaults — used as a last-resort fallback so this endpoint always
+// returns a usable document and never crashes with a 500/HTML error page.
+const DEFAULT_TERMS_SETTINGS: TermsSettings = {
+  checkInTime: '09:00',
+  checkOutTime: '17:00',
+  requiredWorkHours: 8,
+  gracePeriodMinutes: 15,
+  lateFineBase: 250,
+  lateFinePer30Min: 250,
+  leaveCost: 1000,
+  paidLeavesPerMonth: 1,
+  annualLeavesPerYear: 12,
+  warningLeaveCount: 3,
+  dangerLeaveCount: 5,
+  workingDays: '1,2,3,4,5',
+  flexibleHoursEnabled: false,
+}
+
 // GET /api/terms - Get the Terms & Policies content (any authenticated user)
 export async function GET() {
   try {
@@ -45,32 +63,43 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let settings = await prisma.globalSettings.findFirst()
+    try {
+      let settings = await prisma.globalSettings.findFirst()
 
-    // No settings row yet -> create one with defaults so the generated
-    // document is never empty (mirrors the /api/settings behavior).
-    if (!settings) {
-      settings = await prisma.globalSettings.create({ data: {} })
-    }
+      // No settings row yet -> create one with defaults so the generated
+      // document is never empty (mirrors the /api/settings behavior).
+      if (!settings) {
+        settings = await prisma.globalSettings.create({ data: {} })
+      }
 
-    if (settings.termsContent && settings.termsContent.trim().length > 0) {
+      if (settings.termsContent && settings.termsContent.trim().length > 0) {
+        return NextResponse.json({
+          content: sanitizeHtml(settings.termsContent),
+          isDefault: false,
+        })
+      }
+
+      // Fall back to a default generated from the live settings
       return NextResponse.json({
-        content: sanitizeHtml(settings.termsContent),
-        isDefault: false,
+        content: generateDefaultTermsHtml(toTermsSettings(settings)),
+        isDefault: true,
+      })
+    } catch (dbError) {
+      // DB read failed (e.g. schema out of sync). Never crash — return a
+      // document generated from defaults so the page still renders.
+      console.error('Get terms DB error, serving default document:', dbError)
+      return NextResponse.json({
+        content: generateDefaultTermsHtml(DEFAULT_TERMS_SETTINGS),
+        isDefault: true,
       })
     }
-
-    // Fall back to a default generated from the live settings
-    return NextResponse.json({
-      content: generateDefaultTermsHtml(toTermsSettings(settings)),
-      isDefault: true,
-    })
   } catch (error) {
     console.error('Get terms error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch terms' },
-      { status: 500 }
-    )
+    // Last resort: still return a valid JSON document rather than an error.
+    return NextResponse.json({
+      content: generateDefaultTermsHtml(DEFAULT_TERMS_SETTINGS),
+      isDefault: true,
+    })
   }
 }
 
