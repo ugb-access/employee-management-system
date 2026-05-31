@@ -33,11 +33,16 @@ import {
   DollarSign,
   Timer,
   CalendarOff,
+  UserX,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { exportToCSV, formatDateForExport, formatTimeForExport } from '@/lib/export'
-import { formatTime } from '@/lib/calculations'
+import { formatTime, computeAbsentDays } from '@/lib/calculations'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
+
+const PAGE_SIZE = 10
 
 interface EmployeeSettings {
   checkInTime: string | null
@@ -76,6 +81,7 @@ interface Leave {
   reason: string
   leaveType: string
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  isPaid: boolean
   createdAt: string
   approver: { id: string; name: string } | null
 }
@@ -87,12 +93,20 @@ interface OffDay {
   isPaid: boolean
 }
 
+interface Holiday { id: string; date: string }
+
 interface GlobalSettings {
   checkInTime: string
   checkOutTime: string
   requiredWorkHours: number
   workingDays: string
+  leaveCost: number
 }
+
+type TimelineRow =
+  | { kind: 'attendance'; data: Attendance }
+  | { kind: 'leave'; data: Leave }
+  | { kind: 'absent'; date: string }
 
 export default function EmployeeAttendancePage() {
   const { data: session, status } = useSession()
@@ -104,9 +118,11 @@ export default function EmployeeAttendancePage() {
   const [attendance, setAttendance] = useState<Attendance[]>([])
   const [leaves, setLeaves] = useState<Leave[]>([])
   const [offDays, setOffDays] = useState<OffDay[]>([])
+  const [holidays, setHolidays] = useState<Holiday[]>([])
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(() => getCurrentMonthRange())
+  const [currentPage, setCurrentPage] = useState(1)
 
   const lastFetchedRef = useRef<string>('')
 
@@ -124,6 +140,7 @@ export default function EmployeeAttendancePage() {
       fetchLeaves()
       fetchOffDays()
       fetchGlobalSettings()
+      fetchHolidays()
     }
   }, [session, employeeId])
 
@@ -132,6 +149,7 @@ export default function EmployeeAttendancePage() {
       const filterKey = `${dateFilter.startDate}_${dateFilter.endDate}`
       if (lastFetchedRef.current !== filterKey) {
         lastFetchedRef.current = filterKey
+        setCurrentPage(1)
         fetchAttendance()
       }
     }
@@ -148,7 +166,7 @@ export default function EmployeeAttendancePage() {
     }
   }
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/attendance?userId=${employeeId}&startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`
@@ -161,7 +179,7 @@ export default function EmployeeAttendancePage() {
     } finally {
       setInitialLoading(false)
     }
-  }
+  }, [employeeId, dateFilter.startDate, dateFilter.endDate])
 
   const fetchLeaves = async () => {
     try {
@@ -185,6 +203,16 @@ export default function EmployeeAttendancePage() {
     }
   }
 
+  const fetchHolidays = async () => {
+    try {
+      const response = await fetch('/api/holidays')
+      const data = await response.json()
+      if (response.ok) setHolidays(data.holidays || [])
+    } catch {
+      // non-critical
+    }
+  }
+
   const fetchGlobalSettings = async () => {
     try {
       const response = await fetch('/api/settings')
@@ -195,24 +223,95 @@ export default function EmployeeAttendancePage() {
     }
   }
 
-  const formatHours = (hours: number | null) => {
-    if (!hours) return '-'
-    return `${hours.toFixed(1)}h`
-  }
+  const formatHours = (hours: number | null) => hours ? `${hours.toFixed(1)}h` : '-'
 
-  // Summary stats for the filtered period
+  // Filter leaves and off-days by the current date range
+  const rangeStart = new Date(dateFilter.startDate + 'T00:00:00.000Z')
+  const rangeEnd = new Date(dateFilter.endDate + 'T00:00:00.000Z')
+
+  const filteredLeaves = leaves.filter((l) => {
+    const d = new Date(l.date)
+    return l.status === 'APPROVED' && d >= rangeStart && d <= rangeEnd
+  })
+
+  // Compute absent days for the range
+  const workingDays = globalSettings?.workingDays
+    ? globalSettings.workingDays.split(',').map(Number)
+    : [1, 2, 3, 4, 5]
+
+  const holidayDates = holidays
+    .filter((h) => {
+      const d = new Date(h.date)
+      return d >= rangeStart && d <= rangeEnd
+    })
+    .map((h) => new Date(h.date))
+
+  const absentDays = computeAbsentDays(
+    rangeStart,
+    rangeEnd,
+    workingDays,
+    attendance.map(a => new Date(a.date)),
+    filteredLeaves.map(l => new Date(l.date)),
+    offDays.filter(o => {
+      const d = new Date(o.date)
+      return d >= rangeStart && d <= rangeEnd
+    }).map(o => new Date(o.date)),
+    holidayDates
+  )
+
+  // Build unified timeline
+  const timeline: TimelineRow[] = [
+    ...attendance.map(a => ({ kind: 'attendance' as const, data: a })),
+    ...filteredLeaves.map(l => ({ kind: 'leave' as const, data: l })),
+    ...absentDays.map(d => ({ kind: 'absent' as const, date: d.toISOString() })),
+  ]
+  const getRowDate = (row: TimelineRow) =>
+    row.kind === 'attendance' ? row.data.date :
+    row.kind === 'leave' ? row.data.date : row.date
+  timeline.sort((a, b) => new Date(getRowDate(b)).getTime() - new Date(getRowDate(a)).getTime())
+
+  // Stats
+  const leaveCost = globalSettings?.leaveCost || 0
+  const lateFine = attendance.reduce((sum, r) => sum + r.fineAmount, 0)
+  const absenceFine = absentDays.length * leaveCost
+  const totalFine = lateFine + absenceFine
+
   const stats = {
-    totalDays: attendance.length,
+    totalDays: timeline.length,
     lateDays: attendance.filter((r) => r.lateMinutes > 0).length,
     earlyDays: attendance.filter((r) => r.earlyMinutes > 0).length,
     totalHours: attendance.reduce((sum, r) => sum + (r.totalHours || 0), 0),
-    totalFines: attendance.reduce((sum, r) => sum + r.fineAmount, 0),
-    leavesCount: leaves.length,
+    lateFine,
+    absenceFine,
+    totalFine,
+    leavesCount: filteredLeaves.length,
+  }
+
+  // Pagination for timeline
+  const totalPages = Math.ceil(timeline.length / PAGE_SIZE)
+  const paginatedTimeline = timeline.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const pageStart = (currentPage - 1) * PAGE_SIZE
+
+  const getStatusBadge = (row: TimelineRow) => {
+    if (row.kind === 'absent') return <Badge variant="destructive" className="text-xs">Absent</Badge>
+    if (row.kind === 'leave') {
+      return row.data.isPaid
+        ? <Badge className="bg-blue-500 text-xs">On Leave · Paid</Badge>
+        : <Badge className="bg-indigo-500 text-xs">On Leave · Unpaid</Badge>
+    }
+    const badges = []
+    if (row.data.isAutoLeave) badges.push(<Badge key="al" variant="outline" className="text-xs">Auto Leave</Badge>)
+    if (row.data.isModifiedByAdmin) badges.push(<Badge key="mod" variant="secondary" className="text-xs">Modified</Badge>)
+    if (!row.data.isAutoLeave && !row.data.isModifiedByAdmin) {
+      if (row.data.lateMinutes > 0) badges.push(<Badge key="late" className="bg-orange-500 text-xs">Present · Late</Badge>)
+      else badges.push(<Badge key="pres" className="bg-green-500 text-xs">Present</Badge>)
+    }
+    return <div className="flex flex-col gap-1">{badges}</div>
   }
 
   const handleExport = () => {
     if (attendance.length === 0) {
-      toast.error('No data to export')
+      toast.error('No attendance data to export')
       return
     }
 
@@ -336,7 +435,6 @@ export default function EmployeeAttendancePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Effective / Custom Settings */}
               <div className="space-y-3">
                 <h4 className="text-sm font-medium flex items-center gap-2">
                   {effective.isCustom ? (
@@ -362,7 +460,6 @@ export default function EmployeeAttendancePage() {
                 </div>
               </div>
 
-              {/* Global Settings for comparison */}
               {effective.isCustom && globalSettings && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium flex items-center gap-2">
@@ -393,7 +490,7 @@ export default function EmployeeAttendancePage() {
         <DateFilter modes={['month', 'range']} monthCount={12} onChange={setDateFilter} />
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
@@ -433,28 +530,46 @@ export default function EmployeeAttendancePage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-red-500" />
-                <p className="text-sm text-muted-foreground">Total Fines</p>
+                <DollarSign className="h-4 w-4 text-orange-500" />
+                <p className="text-sm text-muted-foreground">Late Fine</p>
               </div>
-              <p className="text-2xl font-bold mt-1">Rs.{stats.totalFines}</p>
+              <p className="text-2xl font-bold mt-1 text-orange-500">Rs.{stats.lateFine}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <UserX className="h-4 w-4 text-red-500" />
+                <p className="text-sm text-muted-foreground">Absence Fine</p>
+              </div>
+              <p className="text-2xl font-bold mt-1 text-red-500">Rs.{stats.absenceFine}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-red-700" />
+                <p className="text-sm text-muted-foreground">Total Fine</p>
+              </div>
+              <p className="text-2xl font-bold mt-1 text-red-700">Rs.{stats.totalFine}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2">
                 <CalendarOff className="h-4 w-4 text-purple-500" />
-                <p className="text-sm text-muted-foreground">Total Leaves</p>
+                <p className="text-sm text-muted-foreground">Leaves (period)</p>
               </div>
               <p className="text-2xl font-bold mt-1">{stats.leavesCount}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs: Attendance | Leaves | Off Days */}
+        {/* Tabs: Attendance Timeline | Leaves | Off Days */}
         <Tabs defaultValue="attendance">
           <TabsList>
             <TabsTrigger value="attendance">
-              Attendance ({attendance.length})
+              Timeline ({timeline.length})
             </TabsTrigger>
             <TabsTrigger value="leaves">
               Leaves ({leaves.length})
@@ -464,112 +579,138 @@ export default function EmployeeAttendancePage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Attendance Tab */}
+          {/* Attendance Timeline Tab */}
           <TabsContent value="attendance">
             <Card>
               <CardHeader>
-                <CardTitle>Attendance Records</CardTitle>
+                <CardTitle>Attendance Timeline</CardTitle>
                 <CardDescription>
-                  {new Date(dateFilter.startDate).toLocaleDateString()} -{' '}
+                  {new Date(dateFilter.startDate).toLocaleDateString()} —{' '}
                   {new Date(dateFilter.endDate).toLocaleDateString()}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {attendance.length === 0 ? (
+                {timeline.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No attendance records found for the selected period.
+                    No records found for the selected period.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Check In</TableHead>
-                          <TableHead>Check Out</TableHead>
-                          <TableHead>Hours</TableHead>
-                          <TableHead>Late (min)</TableHead>
-                          <TableHead>Early (min)</TableHead>
-                          <TableHead>Fine</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {attendance.map((record) => (
-                          <TableRow key={record.id}>
-                            <TableCell>
-                              {new Date(record.date).toLocaleDateString('en-US', {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p>{formatTime(record.checkInTime)}</p>
-                                {record.checkInReason && (
-                                  <p className="text-xs text-muted-foreground truncate max-w-32">
-                                    {record.checkInReason}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p>{formatTime(record.checkOutTime)}</p>
-                                {record.checkOutReason && (
-                                  <p className="text-xs text-muted-foreground truncate max-w-32">
-                                    {record.checkOutReason}
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>{formatHours(record.totalHours)}</TableCell>
-                            <TableCell>
-                              {record.lateMinutes > 0 ? (
-                                <span className="text-orange-500">{record.lateMinutes}</span>
-                              ) : (
-                                '0'
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {record.earlyMinutes > 0 ? (
-                                <span className="text-yellow-500">{record.earlyMinutes}</span>
-                              ) : (
-                                '0'
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {record.fineAmount > 0 ? (
-                                <span className="text-red-500">Rs.{record.fineAmount}</span>
-                              ) : (
-                                'Rs.0'
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                {record.isAutoLeave && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Auto Leave
-                                  </Badge>
-                                )}
-                                {record.isModifiedByAdmin && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Modified
-                                  </Badge>
-                                )}
-                                {!record.isAutoLeave && !record.isModifiedByAdmin && (
-                                  <Badge variant="default" className="text-xs">
-                                    Present
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Check In</TableHead>
+                            <TableHead>Check Out</TableHead>
+                            <TableHead>Hours</TableHead>
+                            <TableHead>Late (min)</TableHead>
+                            <TableHead>Early (min)</TableHead>
+                            <TableHead>Fine</TableHead>
+                            <TableHead>Status</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedTimeline.map((row) => (
+                            <TableRow
+                              key={
+                                row.kind === 'attendance' ? `att-${row.data.id}` :
+                                row.kind === 'leave' ? `leave-${row.data.id}` :
+                                `absent-${row.date}`
+                              }
+                            >
+                              <TableCell>
+                                {new Date(getRowDate(row)).toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </TableCell>
+                              <TableCell>
+                                {row.kind === 'attendance' ? (
+                                  <div>
+                                    <p>{formatTime(row.data.checkInTime)}</p>
+                                    {row.data.checkInReason && (
+                                      <p className="text-xs text-muted-foreground truncate max-w-32">
+                                        {row.data.checkInReason}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {row.kind === 'attendance' ? (
+                                  <div>
+                                    <p>{formatTime(row.data.checkOutTime)}</p>
+                                    {row.data.checkOutReason && (
+                                      <p className="text-xs text-muted-foreground truncate max-w-32">
+                                        {row.data.checkOutReason}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {row.kind === 'attendance' ? formatHours(row.data.totalHours) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {row.kind === 'attendance'
+                                  ? row.data.lateMinutes > 0
+                                    ? <span className="text-orange-500">{row.data.lateMinutes}</span>
+                                    : '0'
+                                  : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {row.kind === 'attendance'
+                                  ? row.data.earlyMinutes > 0
+                                    ? <span className="text-yellow-500">{row.data.earlyMinutes}</span>
+                                    : '0'
+                                  : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {row.kind === 'attendance'
+                                  ? row.data.fineAmount > 0
+                                    ? <span className="text-red-500">Rs.{row.data.fineAmount}</span>
+                                    : 'Rs.0'
+                                  : '—'}
+                              </TableCell>
+                              <TableCell>{getStatusBadge(row)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {timeline.length > PAGE_SIZE && (
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <p className="text-sm text-muted-foreground">
+                          Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, timeline.length)} of {timeline.length} records
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => p - 1)}
+                            disabled={currentPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+                          <span className="text-sm font-medium">
+                            Page {currentPage} of {totalPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => p + 1)}
+                            disabled={currentPage === totalPages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
