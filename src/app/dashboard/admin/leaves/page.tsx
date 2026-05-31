@@ -39,7 +39,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Check, X, Clock, Loader2, Plus } from 'lucide-react'
+import { Check, X, Clock, Loader2, Plus, CalendarRange } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
 import { DateFilter, DateFilterValue, getCurrentMonthRange } from '@/components/date-filter'
 import { toast } from 'sonner'
@@ -87,10 +87,13 @@ export default function AdminLeavesPage() {
 
   // Add leave dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [addRangeMode, setAddRangeMode] = useState(false)
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
+  const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5])
   const [addForm, setAddForm] = useState({
     userId: '',
     date: '',
+    endDate: '',
     leaveType: 'UNPAID' as 'PAID' | 'UNPAID' | 'SICK' | 'CASUAL',
     reason: '',
   })
@@ -133,9 +136,20 @@ export default function AdminLeavesPage() {
 
   const fetchEmployees = async () => {
     try {
-      const res = await fetch('/api/employees?all=true&status=active')
-      const data = await res.json()
-      if (res.ok) setEmployees(data.employees || [])
+      const [empRes, settingsRes] = await Promise.all([
+        fetch('/api/employees?all=true&status=active'),
+        fetch('/api/settings'),
+      ])
+      if (empRes.ok) {
+        const data = await empRes.json()
+        setEmployees(data.employees || [])
+      }
+      if (settingsRes.ok) {
+        const data = await settingsRes.json()
+        if (data.settings?.workingDays) {
+          setWorkingDays(data.settings.workingDays.split(',').map(Number))
+        }
+      }
     } catch {
       // non-critical
     }
@@ -143,7 +157,8 @@ export default function AdminLeavesPage() {
 
   const handleOpenAddDialog = () => {
     fetchEmployees()
-    setAddForm({ userId: '', date: '', leaveType: 'UNPAID', reason: '' })
+    setAddRangeMode(false)
+    setAddForm({ userId: '', date: '', endDate: '', leaveType: 'UNPAID', reason: '' })
     setAddDialogOpen(true)
   }
 
@@ -151,15 +166,23 @@ export default function AdminLeavesPage() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      const response = await fetch('/api/leaves', {
+      const url = addRangeMode && addForm.endDate ? '/api/leaves/batch' : '/api/leaves'
+      const body = addRangeMode && addForm.endDate
+        ? { userId: addForm.userId, startDate: addForm.date, endDate: addForm.endDate, leaveType: addForm.leaveType, reason: addForm.reason }
+        : addForm
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify(body),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to create leave')
-      toast.success('Leave created and approved')
+      toast.success(data.message || 'Leave created and approved')
+      if (data.skipped && data.skipped.length > 0) {
+        toast.info(`${data.skipped.length} day(s) skipped (weekends, holidays, or duplicates)`, { duration: 6000 })
+      }
       setAddDialogOpen(false)
+      setAddRangeMode(false)
       fetchLeaves()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to create leave')
@@ -377,8 +400,8 @@ export default function AdminLeavesPage() {
       </div>
 
       {/* Add Leave Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) { setAddRangeMode(false); setAddForm({ userId: '', date: '', endDate: '', leaveType: 'UNPAID', reason: '' }) } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Leave</DialogTitle>
             <DialogDescription>
@@ -405,16 +428,95 @@ export default function AdminLeavesPage() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="add-date">Date *</Label>
-              <Input
-                id="add-date"
-                type="date"
-                value={addForm.date}
-                onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
-                required
-              />
+            {/* Mode toggle */}
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => { setAddRangeMode(false); setAddForm(f => ({ ...f, endDate: '' })) }}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${!addRangeMode ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              >
+                Single Day
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddRangeMode(true)}
+                className={`flex-1 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${addRangeMode ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              >
+                <CalendarRange className="h-4 w-4" />
+                Date Range
+              </button>
             </div>
+
+            {/* Date inputs */}
+            {!addRangeMode ? (
+              <div className="space-y-2">
+                <Label htmlFor="add-date">Date *</Label>
+                <Input
+                  id="add-date"
+                  type="date"
+                  value={addForm.date}
+                  onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                  required
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="add-start">From *</Label>
+                  <Input
+                    id="add-start"
+                    type="date"
+                    value={addForm.date}
+                    onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-end">To *</Label>
+                  <Input
+                    id="add-end"
+                    type="date"
+                    min={addForm.date || undefined}
+                    value={addForm.endDate}
+                    onChange={(e) => setAddForm({ ...addForm, endDate: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Range preview */}
+            {(() => {
+              if (!addRangeMode || !addForm.date || !addForm.endDate) return null
+              const start = new Date(addForm.date + 'T00:00:00.000Z')
+              const end = new Date(addForm.endDate + 'T00:00:00.000Z')
+              if (start > end) return <p className="text-sm text-destructive">End date must be after start date.</p>
+              const dates: Date[] = []
+              const cur = new Date(start)
+              while (cur.getTime() <= end.getTime() && dates.length <= 30) {
+                const day = cur.getUTCDay()
+                const iso = day === 0 ? 7 : day
+                if (workingDays.includes(iso)) dates.push(new Date(cur))
+                cur.setUTCDate(cur.getUTCDate() + 1)
+              }
+              if (dates.length === 0) return <p className="text-sm text-destructive">No working days in selected range.</p>
+              return (
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <p className="font-medium mb-1.5">
+                    {dates.length} working day(s) selected
+                    <span className="text-muted-foreground font-normal"> (holidays excluded at submission)</span>
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {dates.slice(0, 20).map(d => (
+                      <span key={d.toISOString()} className="px-2 py-0.5 bg-background border rounded text-xs">
+                        {d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </span>
+                    ))}
+                    {dates.length > 20 && <span className="px-2 py-0.5 text-xs text-muted-foreground">+{dates.length - 20} more</span>}
+                  </div>
+                </div>
+              )
+            })()}
 
             <div className="space-y-2">
               <Label htmlFor="add-type">Leave Type</Label>
@@ -453,10 +555,10 @@ export default function AdminLeavesPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={submitting || !addForm.userId || !addForm.date || addForm.reason.length < 10}
+                disabled={submitting || !addForm.userId || !addForm.date || addForm.reason.length < 10 || (addRangeMode && !addForm.endDate)}
               >
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create & Approve
+                {addRangeMode ? 'Create & Approve All' : 'Create & Approve'}
               </Button>
             </DialogFooter>
           </form>
