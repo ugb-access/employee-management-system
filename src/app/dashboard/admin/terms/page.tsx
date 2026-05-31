@@ -45,42 +45,51 @@ export default function AdminTermsPage() {
     }
   }, [session])
 
+  const safeParse = (text: string): Record<string, unknown> | null => {
+    try {
+      return text ? JSON.parse(text) : null
+    } catch {
+      return null
+    }
+  }
+
+  const loadSettings = async (): Promise<TermsSettings | null> => {
+    try {
+      const res = await fetch('/api/settings')
+      const data = safeParse(await res.text())
+      const s = (data?.settings as TermsSettings | undefined) ?? null
+      if (s) setSettings(s)
+      return s
+    } catch {
+      return null
+    }
+  }
+
   const fetchData = async () => {
     try {
-      const [termsRes, settingsRes] = await Promise.all([
-        fetch('/api/terms'),
-        fetch('/api/settings'),
-      ])
-      // Read as text first so a non-JSON response (e.g. an HTML error page
-      // from a server failure) doesn't crash with a cryptic parse error.
-      const termsText = await termsRes.text()
-      let termsData: { content?: string; isDefault?: boolean; error?: string } | null = null
+      // Load settings independently so a Terms failure never blocks Regenerate.
+      const loadedSettings = await loadSettings()
+
+      // Load terms; degrade to a client-generated document rather than failing.
+      let loadedContent = ''
+      let defaultFlag = true
       try {
-        termsData = termsText ? JSON.parse(termsText) : null
+        const res = await fetch('/api/terms')
+        const data = safeParse(await res.text())
+        loadedContent = (data?.content as string) || ''
+        defaultFlag = (data?.isDefault as boolean) ?? true
       } catch {
-        termsData = null
-      }
-      if (!termsRes.ok || !termsData) {
-        throw new Error(
-          termsData?.error || 'Could not load Terms & Policies. Please try again later.'
-        )
+        loadedContent = ''
       }
 
-      let loadedSettings: TermsSettings | null = null
-      if (settingsRes.ok) {
-        const settingsData = await settingsRes.json()
-        loadedSettings = settingsData.settings
-        setSettings(loadedSettings)
-      }
-
-      // Fallback: if the server returned no content but we have settings,
-      // generate the default document client-side so the editor is never blank.
-      let loadedContent: string = termsData.content || ''
+      // If the server gave us nothing but we have settings, generate locally.
       if (loadedContent.trim().length === 0 && loadedSettings) {
         loadedContent = generateDefaultTermsHtml(loadedSettings)
+        defaultFlag = true
       }
+
       setContent(loadedContent)
-      setIsDefault(termsData.isDefault ?? true)
+      setIsDefault(defaultFlag)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to load terms')
     } finally {
@@ -88,9 +97,11 @@ export default function AdminTermsPage() {
     }
   }
 
-  const handleRegenerate = () => {
-    if (!settings) {
-      toast.error('Settings not loaded yet')
+  const handleRegenerate = async () => {
+    // Fetch settings on demand if they didn't load initially.
+    const current = settings ?? (await loadSettings())
+    if (!current) {
+      toast.error('Could not load settings. Please refresh and try again.')
       return
     }
     if (
@@ -100,7 +111,7 @@ export default function AdminTermsPage() {
     ) {
       return
     }
-    setContent(generateDefaultTermsHtml(settings))
+    setContent(generateDefaultTermsHtml(current))
     toast.success('Regenerated from current settings. Review and save to publish.')
   }
 
