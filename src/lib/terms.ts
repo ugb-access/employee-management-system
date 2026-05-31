@@ -104,10 +104,13 @@ ${
   <li><strong>Danger threshold:</strong> Taking ${settings.dangerLeaveCount} or more leaves in a month places you in the <em>danger</em> zone.</li>
 </ul>
 
-<h2>5. Public Holidays &amp; Off Days</h2>
+<h2>5. Absence (Unmarked Working Days)</h2>
+<p>A working day in the past with no attendance record, no approved leave, and that is not an off day or public holiday is counted as an <strong>absence</strong>. Each absent day is charged at the leave rate of <strong>Rs. ${settings.leaveCost}</strong> per day.</p>
+
+<h2>6. Public Holidays &amp; Off Days</h2>
 <p>Any day marked as a <strong>public holiday</strong>, or a day specifically marked as an <strong>off day</strong> for you, is not a working day. You will <strong>not</strong> be marked absent or charged any fine for these days.</p>
 
-<h2>6. Valid Reason Required</h2>
+<h2>7. Valid Reason Required</h2>
 <p>A clear, valid reason is required in the following cases:</p>
 <ul>
   <li>When you <strong>check in late</strong> (after the scheduled check-in time).</li>
