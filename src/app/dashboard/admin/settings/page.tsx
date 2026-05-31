@@ -50,6 +50,7 @@ interface GlobalSettings {
   dangerLeaveCount: number
   workingDays: string
   flexibleHoursEnabled: boolean
+  annualLeavesPerYear: number
 }
 
 interface Holiday {
@@ -95,6 +96,7 @@ export default function AdminSettingsPage() {
     dangerLeaveCount: 5,
     workingDays: [1, 2, 3, 4, 5],
     flexibleHoursEnabled: false,
+    annualLeavesPerYear: 12,
   })
 
   // Holiday dialog
@@ -147,6 +149,7 @@ export default function AdminSettingsPage() {
             .split(',')
             .map(Number),
           flexibleHoursEnabled: settingsData.settings.flexibleHoursEnabled ?? false,
+          annualLeavesPerYear: settingsData.settings.annualLeavesPerYear ?? 12,
         })
       }
 
@@ -463,6 +466,28 @@ export default function AdminSettingsPage() {
                         })
                       }
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="annualLeavesPerYear">
+                      Annual Leave Pool
+                    </Label>
+                    <Input
+                      id="annualLeavesPerYear"
+                      type="number"
+                      min="0"
+                      max="365"
+                      value={formData.annualLeavesPerYear}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          annualLeavesPerYear: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Total leaves allowed per year (default 12). Exceeding this makes leaves unpaid with deduction.
+                    </p>
                   </div>
 
                   <div className="space-y-2">
