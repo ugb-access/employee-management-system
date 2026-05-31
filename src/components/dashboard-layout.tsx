@@ -24,6 +24,7 @@ import {
   LogOut,
   User,
   CalendarDays,
+  FileText,
   Moon,
   Sun,
   Monitor
@@ -39,6 +40,7 @@ const navigation = {
     { name: 'Leaves', href: '/dashboard/admin/leaves', icon: Calendar },
     { name: 'Off Days', href: '/dashboard/admin/off-days', icon: CalendarDays },
     { name: 'Reports', href: '/dashboard/admin/reports', icon: BarChart3 },
+    { name: 'Terms & Policies', href: '/dashboard/admin/terms', icon: FileText },
     { name: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
     { name: 'Profile', href: '/dashboard/admin/profile', icon: User },
   ],
@@ -46,6 +48,7 @@ const navigation = {
     { name: 'Dashboard', href: '/dashboard/employee', icon: LayoutDashboard },
     { name: 'My Attendance', href: '/dashboard/employee/attendance', icon: Clock },
     { name: 'My Leaves', href: '/dashboard/employee/leaves', icon: Calendar },
+    { name: 'Terms & Policies', href: '/dashboard/employee/terms', icon: FileText },
     { name: 'Profile', href: '/dashboard/employee/profile', icon: User },
   ],
 }
