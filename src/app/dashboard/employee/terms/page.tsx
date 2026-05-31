@@ -21,6 +21,7 @@ export default function EmployeeTermsPage() {
   const router = useRouter()
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -37,13 +38,27 @@ export default function EmployeeTermsPage() {
   const fetchTerms = async () => {
     try {
       const res = await fetch('/api/terms')
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to load terms')
+      // Read as text first so a non-JSON response (e.g. an HTML error page
+      // from a server failure) doesn't crash with a cryptic parse error.
+      const text = await res.text()
+      let data: { content?: string; error?: string } | null = null
+      try {
+        data = text ? JSON.parse(text) : null
+      } catch {
+        data = null
       }
+      if (!res.ok || !data) {
+        throw new Error(
+          data?.error || 'Could not load Terms & Policies. Please try again later.'
+        )
+      }
+      setLoadError(false)
       setContent(data.content || '')
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load terms')
+      setLoadError(true)
+      toast.error(
+        err instanceof Error ? err.message : 'Could not load Terms & Policies'
+      )
     } finally {
       setLoading(false)
     }
@@ -78,7 +93,12 @@ export default function EmployeeTermsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {content.trim().length === 0 ? (
+            {loadError ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Could not load Terms &amp; Policies right now. Please refresh the
+                page or try again later.
+              </div>
+            ) : content.trim().length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 No terms &amp; policies have been published yet.
               </div>

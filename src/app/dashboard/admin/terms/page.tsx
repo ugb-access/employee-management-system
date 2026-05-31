@@ -51,9 +51,19 @@ export default function AdminTermsPage() {
         fetch('/api/terms'),
         fetch('/api/settings'),
       ])
-      const termsData = await termsRes.json()
-      if (!termsRes.ok) {
-        throw new Error(termsData.error || 'Failed to load terms')
+      // Read as text first so a non-JSON response (e.g. an HTML error page
+      // from a server failure) doesn't crash with a cryptic parse error.
+      const termsText = await termsRes.text()
+      let termsData: { content?: string; isDefault?: boolean; error?: string } | null = null
+      try {
+        termsData = termsText ? JSON.parse(termsText) : null
+      } catch {
+        termsData = null
+      }
+      if (!termsRes.ok || !termsData) {
+        throw new Error(
+          termsData?.error || 'Could not load Terms & Policies. Please try again later.'
+        )
       }
 
       let loadedSettings: TermsSettings | null = null
@@ -70,7 +80,7 @@ export default function AdminTermsPage() {
         loadedContent = generateDefaultTermsHtml(loadedSettings)
       }
       setContent(loadedContent)
-      setIsDefault(termsData.isDefault)
+      setIsDefault(termsData.isDefault ?? true)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to load terms')
     } finally {
