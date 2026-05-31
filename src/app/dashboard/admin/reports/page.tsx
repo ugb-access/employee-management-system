@@ -100,12 +100,14 @@ export default function AdminReportsPage() {
 
   const fetchReportData = useCallback(async () => {
     try {
-      const [attendanceRes, employeesRes, leavesRes, settingsRes, holidaysRes] = await Promise.all([
+      const currentYear = new Date().getUTCFullYear()
+      const [attendanceRes, employeesRes, leavesRes, settingsRes, holidaysRes, yearLeavesRes] = await Promise.all([
         fetch(`/api/attendance?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`),
         fetch('/api/employees?all=true'),
         fetch(`/api/leaves?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`),
         fetch('/api/settings'),
         fetch('/api/holidays'),
+        fetch(`/api/leaves?status=APPROVED&startDate=${currentYear}-01-01&endDate=${currentYear}-12-31`),
       ])
 
       const attendanceData = await attendanceRes.json()
@@ -113,6 +115,8 @@ export default function AdminReportsPage() {
       const leavesData = await leavesRes.json()
       const settingsData = settingsRes.ok ? await settingsRes.json() : null
       const holidaysData = holidaysRes.ok ? await holidaysRes.json() : null
+      const yearLeavesData = yearLeavesRes.ok ? await yearLeavesRes.json() : null
+      const allYearLeaves: { userId: string; status: string }[] = yearLeavesData?.leaves || []
 
       if (attendanceRes.ok && employeesRes.ok && leavesRes.ok) {
         const employees = employeesData.employees
@@ -129,6 +133,7 @@ export default function AdminReportsPage() {
           ? settingsData.settings.workingDays.split(',').map(Number)
           : [1, 2, 3, 4, 5]
         const leaveCost: number = settingsData?.settings?.leaveCost || 0
+        const annualPool: number = settingsData?.settings?.annualLeavesPerYear ?? 12
 
         const allHolidays: { date: string }[] = holidaysData?.holidays || []
         const holidayDates = allHolidays
@@ -182,7 +187,10 @@ export default function AdminReportsPage() {
               holidayDates
             )
             const absentDays = empAbsentDays.length
-            const absenceFine = absentDays * leaveCost
+            const empYearLeavesUsed = allYearLeaves.filter(l => l.userId === emp.id).length
+            const annualRemaining = Math.max(0, annualPool - empYearLeavesUsed)
+            const fineWorthyAbsences = Math.max(0, absentDays - annualRemaining)
+            const absenceFine = fineWorthyAbsences * leaveCost
             const totalFine = lateFine + absenceFine
 
             return {

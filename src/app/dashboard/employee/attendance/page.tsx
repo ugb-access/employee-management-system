@@ -71,6 +71,7 @@ export default function EmployeeAttendancePage() {
   const [holidays, setHolidays] = useState<Holiday[]>([])
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5])
   const [leaveCost, setLeaveCost] = useState(0)
+  const [annualPool, setAnnualPool] = useState<{ used: number; limit: number; remaining: number } | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -110,6 +111,7 @@ export default function EmployeeAttendancePage() {
       if (leavesRes.ok) {
         const data = await leavesRes.json()
         setLeaves(data.leaves)
+        if (data.annualBalance) setAnnualPool(data.annualBalance)
       }
     } catch (error) {
       console.error('Failed to fetch attendance:', error)
@@ -160,7 +162,9 @@ export default function EmployeeAttendancePage() {
   const lateDays = attendance.filter(a => a.lateMinutes > 0).length
   const totalHours = attendance.reduce((sum, a) => sum + (a.totalHours || 0), 0)
   const lateFine = attendance.reduce((sum, a) => sum + a.fineAmount, 0)
-  const absenceFine = absentDays.length * leaveCost
+  const annualRemaining = Math.max(0, (annualPool?.remaining ?? Infinity))
+  const fineWorthyAbsences = Math.max(0, absentDays.length - annualRemaining)
+  const absenceFine = fineWorthyAbsences * leaveCost
   const grandTotal = lateFine + absenceFine
 
   // Pagination
