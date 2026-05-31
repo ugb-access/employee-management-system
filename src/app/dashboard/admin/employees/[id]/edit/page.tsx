@@ -68,7 +68,7 @@ export default function EditEmployeePage() {
     checkInTime: '',
     checkOutTime: '',
     requiredWorkHours: '',
-    flexibleHoursEnabled: '' as '' | 'true' | 'false',
+    flexibleHoursEnabled: 'global' as 'global' | 'true' | 'false',
   })
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function EditEmployeePage() {
         requiredWorkHours: employee.settings?.requiredWorkHours?.toString() || '',
         flexibleHoursEnabled:
           employee.flexibleHoursEnabled === true ? 'true' :
-          employee.flexibleHoursEnabled === false ? 'false' : '',
+          employee.flexibleHoursEnabled === false ? 'false' : 'global',
       })
       setAccessKey(employee.accessKey)
     } catch (err: unknown) {
@@ -180,6 +180,7 @@ export default function EditEmployeePage() {
           flexibleHoursEnabled:
             formData.flexibleHoursEnabled === 'true' ? true :
             formData.flexibleHoursEnabled === 'false' ? false : null,
+          // 'global' maps to null above (inherit company-wide setting)
         }),
       })
 
@@ -386,14 +387,14 @@ export default function EditEmployeePage() {
                     <Select
                       value={formData.flexibleHoursEnabled}
                       onValueChange={(value) =>
-                        setFormData({ ...formData, flexibleHoursEnabled: value as '' | 'true' | 'false' })
+                        setFormData({ ...formData, flexibleHoursEnabled: value as 'global' | 'true' | 'false' })
                       }
                     >
                       <SelectTrigger id="flexibleHoursEnabled">
                         <SelectValue placeholder="Use global setting" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Use global setting</SelectItem>
+                        <SelectItem value="global">Use global setting</SelectItem>
                         <SelectItem value="true">Enabled — waive fine if hours completed</SelectItem>
                         <SelectItem value="false">Disabled — always apply late fine</SelectItem>
                       </SelectContent>

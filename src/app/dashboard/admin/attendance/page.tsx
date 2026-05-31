@@ -489,9 +489,13 @@ export default function AdminAttendancePage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
-                            {record.isAutoLeave && (
+                            {record.isAutoLeave ? (
                               <Badge variant="outline" className="text-xs">
                                 Auto Leave
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-green-500 text-xs">
+                                Present
                               </Badge>
                             )}
                             {record.isModifiedByAdmin && (
