@@ -83,7 +83,27 @@ export async function GET(req: Request) {
       approver: leave.approvedBy ? approverMap.get(leave.approvedBy) : null,
     }))
 
-    return NextResponse.json({ leaves })
+    // Return annual balance for employees (always current year, ignores date filter)
+    let annualBalance = null
+    if (session.user.role === 'EMPLOYEE') {
+      const currentYear = new Date().getUTCFullYear()
+      const yearStart = new Date(`${currentYear}-01-01T00:00:00.000Z`)
+      const yearEnd = new Date(`${currentYear}-12-31T23:59:59.999Z`)
+      const [annualUsed, globalSettings] = await Promise.all([
+        prisma.leave.count({
+          where: {
+            userId: session.user.id,
+            status: 'APPROVED',
+            date: { gte: yearStart, lte: yearEnd },
+          },
+        }),
+        prisma.globalSettings.findFirst(),
+      ])
+      const limit = globalSettings?.annualLeavesPerYear ?? 12
+      annualBalance = { used: annualUsed, limit, remaining: Math.max(0, limit - annualUsed) }
+    }
+
+    return NextResponse.json({ leaves, annualBalance })
   } catch (error) {
     console.error('Get leaves error:', error)
     return NextResponse.json(
@@ -241,6 +261,45 @@ export async function POST(req: Request) {
       )
     }
 
+    // Check monthly and annual leave limits to generate warnings
+    const warnings: string[] = []
+    if (globalSettings) {
+      const paidLeavesPerMonth = globalSettings.paidLeavesPerMonth
+      const annualLeavesPerYear = globalSettings.annualLeavesPerYear ?? 12
+
+      const monthStart = new Date(Date.UTC(leaveDate.getUTCFullYear(), leaveDate.getUTCMonth(), 1))
+      const monthEnd = new Date(Date.UTC(leaveDate.getUTCFullYear(), leaveDate.getUTCMonth() + 1, 0))
+      const yearStart = new Date(`${leaveDate.getUTCFullYear()}-01-01T00:00:00.000Z`)
+      const yearEnd = new Date(`${leaveDate.getUTCFullYear()}-12-31T23:59:59.999Z`)
+
+      const [monthlyUsed, annualUsed] = await Promise.all([
+        prisma.leave.count({
+          where: {
+            userId: session.user.id,
+            status: 'APPROVED',
+            date: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+        prisma.leave.count({
+          where: {
+            userId: session.user.id,
+            status: 'APPROVED',
+            date: { gte: yearStart, lte: yearEnd },
+          },
+        }),
+      ])
+
+      if (annualUsed >= annualLeavesPerYear) {
+        warnings.push(
+          `Annual leave pool exhausted (${annualUsed}/${annualLeavesPerYear} used). This leave is unpaid and a deduction of Rs.${globalSettings.leaveCost} will apply.`
+        )
+      } else if (monthlyUsed >= paidLeavesPerMonth) {
+        warnings.push(
+          `Monthly free leaves used (${monthlyUsed}/${paidLeavesPerMonth} this month). This leave will be deducted from your annual pool (${annualUsed + 1}/${annualLeavesPerYear} after this).`
+        )
+      }
+    }
+
     const leave = await prisma.leave.create({
       data: {
         userId: session.user.id,
@@ -264,6 +323,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       leave,
+      warnings,
       message: 'Leave request submitted successfully',
     })
   } catch (error) {
