@@ -88,7 +88,10 @@ export async function POST(req: Request) {
       requiredWorkHours
     )
 
-    // Update attendance record
+    // Waive fine if flexible hours is enabled and required hours are completed
+    const effectiveFlexible = user?.flexibleHoursEnabled ?? globalSettings.flexibleHoursEnabled
+    const fineWaived = effectiveFlexible && totalHours >= requiredWorkHours && attendance.fineAmount > 0
+
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendance.id },
       data: {
@@ -96,15 +99,21 @@ export async function POST(req: Request) {
         checkOutReason: reason,
         earlyMinutes,
         totalHours,
+        ...(fineWaived && { fineAmount: 0 }),
       },
     })
+
+    let message = 'Checked out successfully'
+    if (isIncomplete) {
+      message = `Checked out. Warning: You worked ${deficiencyHours} hours less than required (${requiredWorkHours}h)`
+    } else if (fineWaived) {
+      message = 'Checked out successfully. Late fine waived — required hours completed.'
+    }
 
     return NextResponse.json({
       success: true,
       attendance: updatedAttendance,
-      message: isIncomplete
-        ? `Checked out. Warning: You worked ${deficiencyHours} hours less than required (${requiredWorkHours}h)`
-        : 'Checked out successfully',
+      message,
     })
   } catch (error) {
     console.error('Check-out error:', error)

@@ -168,6 +168,16 @@ export async function PUT(
       updateData.totalHours = calculateTotalHours(finalCheckIn, finalCheckOut)
     }
 
+    // Waive fine if flexible hours enabled and required hours completed
+    const effectiveFlexible = attendance.user.flexibleHoursEnabled ?? globalSettings.flexibleHoursEnabled
+    const requiredHours = settings.requiredWorkHours || globalSettings.requiredWorkHours
+    const finalHours = updateData.totalHours ?? attendance.totalHours
+    const currentFine = updateData.fineAmount ?? attendance.fineAmount
+
+    if (effectiveFlexible && finalHours >= requiredHours && currentFine > 0) {
+      updateData.fineAmount = 0
+    }
+
     const updatedAttendance = await prisma.attendance.update({
       where: { id },
       data: updateData,

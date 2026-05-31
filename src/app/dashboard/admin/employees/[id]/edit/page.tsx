@@ -16,6 +16,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ArrowLeft, Loader2, RefreshCw, Key, Copy, Check } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
 
@@ -34,6 +41,7 @@ interface Employee {
   accessKey: string | null
   joinedDate: string | null
   isActive: boolean
+  flexibleHoursEnabled: boolean | null
   settings: EmployeeSettings | null
 }
 
@@ -60,6 +68,7 @@ export default function EditEmployeePage() {
     checkInTime: '',
     checkOutTime: '',
     requiredWorkHours: '',
+    flexibleHoursEnabled: '' as '' | 'true' | 'false',
   })
 
   useEffect(() => {
@@ -97,6 +106,9 @@ export default function EditEmployeePage() {
         checkInTime: employee.settings?.checkInTime || '',
         checkOutTime: employee.settings?.checkOutTime || '',
         requiredWorkHours: employee.settings?.requiredWorkHours?.toString() || '',
+        flexibleHoursEnabled:
+          employee.flexibleHoursEnabled === true ? 'true' :
+          employee.flexibleHoursEnabled === false ? 'false' : '',
       })
       setAccessKey(employee.accessKey)
     } catch (err: unknown) {
@@ -165,6 +177,9 @@ export default function EditEmployeePage() {
           requiredWorkHours: formData.requiredWorkHours
             ? parseFloat(formData.requiredWorkHours)
             : undefined,
+          flexibleHoursEnabled:
+            formData.flexibleHoursEnabled === 'true' ? true :
+            formData.flexibleHoursEnabled === 'false' ? false : null,
         }),
       })
 
@@ -364,6 +379,28 @@ export default function EditEmployeePage() {
                         })
                       }
                     />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-3">
+                    <Label htmlFor="flexibleHoursEnabled">Flexible Hours</Label>
+                    <Select
+                      value={formData.flexibleHoursEnabled}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, flexibleHoursEnabled: value as '' | 'true' | 'false' })
+                      }
+                    >
+                      <SelectTrigger id="flexibleHoursEnabled">
+                        <SelectValue placeholder="Use global setting" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Use global setting</SelectItem>
+                        <SelectItem value="true">Enabled — waive fine if hours completed</SelectItem>
+                        <SelectItem value="false">Disabled — always apply late fine</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      When enabled, the late fine is waived if this employee completes their required work hours
+                    </p>
                   </div>
                 </div>
               </div>

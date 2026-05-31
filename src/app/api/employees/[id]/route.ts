@@ -94,6 +94,7 @@ export async function PUT(
       isActive?: boolean
       accessKey?: string
       joinedDate?: Date | null
+      flexibleHoursEnabled?: boolean | null
     } = {}
 
     if (validatedData.email) updateData.email = validatedData.email
@@ -110,6 +111,11 @@ export async function PUT(
     // Regenerate access key if requested
     if (validatedData.regenerateAccessKey) {
       updateData.accessKey = generateAccessKey()
+    }
+
+    // Per-employee flexible hours override (null = inherit global)
+    if (validatedData.flexibleHoursEnabled !== undefined) {
+      updateData.flexibleHoursEnabled = validatedData.flexibleHoursEnabled
     }
 
     // Update employee

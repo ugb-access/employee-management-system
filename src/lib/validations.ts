@@ -25,6 +25,7 @@ export const updateEmployeeSchema = createEmployeeSchema.partial().extend({
   id: z.string(),
   isActive: z.boolean().optional(),
   regenerateAccessKey: z.boolean().optional(),
+  flexibleHoursEnabled: z.boolean().nullable().optional(),
 })
 
 export const checkInSchema = z.object({
@@ -64,6 +65,7 @@ export const globalSettingsSchema = z.object({
   warningLeaveCount: z.number().min(0).max(31),
   dangerLeaveCount: z.number().min(0).max(31),
   workingDays: z.array(z.number().min(1).max(7)),
+  flexibleHoursEnabled: z.boolean(),
 })
 
 export const holidaySchema = z.object({
