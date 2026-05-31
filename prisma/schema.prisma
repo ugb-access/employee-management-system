@@ -9,22 +9,23 @@ datasource db {
 }
 
 model User {
-  id          String        @id @default(cuid())
-  email       String        @unique
-  password    String
-  name        String
-  role        Role          @default(EMPLOYEE)
-  designation String?
-  employeeId  String?       @unique
-  accessKey   String?       @unique
-  joinedDate  DateTime?     @db.Date
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  attendance  Attendance[]
-  leaves      Leave[]
-  offDays     OffDay[]
-  settings    UserSettings?
+  id                   String        @id @default(cuid())
+  email                String        @unique
+  password             String
+  name                 String
+  role                 Role          @default(EMPLOYEE)
+  designation          String?
+  employeeId           String?       @unique
+  accessKey            String?       @unique
+  joinedDate           DateTime?     @db.Date
+  isActive             Boolean       @default(true)
+  flexibleHoursEnabled Boolean?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  attendance           Attendance[]
+  leaves               Leave[]
+  offDays              OffDay[]
+  settings             UserSettings?
 }
 
 model UserSettings {
@@ -50,10 +51,11 @@ model GlobalSettings {
   paidLeavesPerMonth Int       @default(1)
   warningLeaveCount  Int       @default(3)
   dangerLeaveCount   Int       @default(5)
-  workingDays        String    @default("1,2,3,4,5")
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  holidays           Holiday[]
+  workingDays          String    @default("1,2,3,4,5")
+  flexibleHoursEnabled Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  holidays             Holiday[]
 }
 
 model Attendance {

@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
@@ -48,6 +49,7 @@ interface GlobalSettings {
   warningLeaveCount: number
   dangerLeaveCount: number
   workingDays: string
+  flexibleHoursEnabled: boolean
 }
 
 interface Holiday {
@@ -92,6 +94,7 @@ export default function AdminSettingsPage() {
     warningLeaveCount: 3,
     dangerLeaveCount: 5,
     workingDays: [1, 2, 3, 4, 5],
+    flexibleHoursEnabled: false,
   })
 
   // Holiday dialog
@@ -143,6 +146,7 @@ export default function AdminSettingsPage() {
           workingDays: settingsData.settings.workingDays
             .split(',')
             .map(Number),
+          flexibleHoursEnabled: settingsData.settings.flexibleHoursEnabled ?? false,
         })
       }
 
@@ -497,6 +501,24 @@ export default function AdminSettingsPage() {
                     <p className="text-xs text-muted-foreground">
                       Number of leaves to trigger danger status
                     </p>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="flexibleHoursEnabled">Flexible Hours</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Waive late fine if the employee completes the required work hours, regardless of check-in time
+                      </p>
+                    </div>
+                    <Switch
+                      id="flexibleHoursEnabled"
+                      checked={formData.flexibleHoursEnabled}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, flexibleHoursEnabled: checked })
+                      }
+                    />
                   </div>
                 </div>
               </CardContent>

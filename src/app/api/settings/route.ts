@@ -28,6 +28,7 @@ export async function GET() {
           warningLeaveCount: 3,
           dangerLeaveCount: 5,
           workingDays: '1,2,3,4,5',
+          flexibleHoursEnabled: false,
         },
       })
     }
@@ -70,6 +71,7 @@ export async function PUT(req: Request) {
           warningLeaveCount: validatedData.warningLeaveCount,
           dangerLeaveCount: validatedData.dangerLeaveCount,
           workingDays: validatedData.workingDays.join(','),
+          flexibleHoursEnabled: validatedData.flexibleHoursEnabled,
         },
       })
     } else {
@@ -87,6 +89,7 @@ export async function PUT(req: Request) {
           warningLeaveCount: validatedData.warningLeaveCount,
           dangerLeaveCount: validatedData.dangerLeaveCount,
           workingDays: validatedData.workingDays.join(','),
+          flexibleHoursEnabled: validatedData.flexibleHoursEnabled,
         },
       })
     }
