@@ -256,6 +256,13 @@ export default function AdminAttendancePage() {
     return (getRowUser(a).name || '').localeCompare(getRowUser(b).name || '')
   })
 
+  // Summary stats over filteredTimeline
+  const totalPresent = filteredTimeline.filter(r => r.kind === 'attendance' && !r.data.isAutoLeave).length
+  const totalAbsent = filteredTimeline.filter(r => r.kind === 'absent').length
+  const totalOnLeave = filteredTimeline.filter(r => r.kind === 'leave').length +
+    filteredTimeline.filter(r => r.kind === 'attendance' && r.data.isAutoLeave).length
+  const totalLate = filteredTimeline.filter(r => r.kind === 'attendance' && r.data.lateMinutes > 0).length
+
   const totalPages = Math.ceil(filteredTimeline.length / PAGE_SIZE)
   const paginatedTimeline = filteredTimeline.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   const pageStart = (currentPage - 1) * PAGE_SIZE
@@ -496,6 +503,50 @@ export default function AdminAttendancePage() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardDescription>Present</CardDescription>
+              <span className="h-4 w-4 rounded-full bg-green-500 inline-block" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600">{totalPresent}</div>
+              <p className="text-xs text-muted-foreground mt-1">days checked in</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardDescription>Absent</CardDescription>
+              <UserX className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-red-500">{totalAbsent}</div>
+              <p className="text-xs text-muted-foreground mt-1">days not present</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardDescription>On Leave</CardDescription>
+              <span className="h-4 w-4 rounded-full bg-blue-500 inline-block" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-600">{totalOnLeave}</div>
+              <p className="text-xs text-muted-foreground mt-1">approved leaves</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardDescription>Late</CardDescription>
+              <span className="h-4 w-4 rounded-full bg-orange-500 inline-block" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-500">{totalLate}</div>
+              <p className="text-xs text-muted-foreground mt-1">late check-ins</p>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
