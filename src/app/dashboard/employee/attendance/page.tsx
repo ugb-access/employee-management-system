@@ -20,10 +20,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Calendar, Clock, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
 import { DateFilter, DateFilterValue, getCurrentMonthRange } from '@/components/date-filter'
 import { formatTime } from '@/lib/calculations'
+import { Button } from '@/components/ui/button'
+
+const PAGE_SIZE = 10
 
 interface Attendance {
   id: string
@@ -43,6 +46,7 @@ export default function EmployeeAttendancePage() {
 
   const [initialLoading, setInitialLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(() => getCurrentMonthRange())
+  const [currentPage, setCurrentPage] = useState(1)
   const lastFetchedRef = useRef<string>('')
   const [attendance, setAttendance] = useState<Attendance[]>([])
 
@@ -109,6 +113,15 @@ export default function EmployeeAttendancePage() {
     }
   }, [dateFilter.startDate, dateFilter.endDate])
 
+  const handleDateFilterChange = (value: DateFilterValue) => {
+    setCurrentPage(1)
+    setDateFilter(value)
+  }
+
+  const totalPages = Math.ceil(attendance.length / PAGE_SIZE)
+  const paginatedAttendance = attendance.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const pageStart = (currentPage - 1) * PAGE_SIZE
+
   const formatHours = (hours: number | null) => {
     if (!hours) return '-'
     return `${hours.toFixed(1)}h`
@@ -139,7 +152,7 @@ export default function EmployeeAttendancePage() {
           <DateFilter
             modes={['month', 'range']}
             monthCount={12}
-            onChange={setDateFilter}
+            onChange={handleDateFilterChange}
           />
         </div>
 
@@ -203,6 +216,7 @@ export default function EmployeeAttendancePage() {
                 No attendance records found.
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -217,7 +231,7 @@ export default function EmployeeAttendancePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {attendance.map((record) => (
+                  {paginatedAttendance.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>
                         {new Date(record.date).toLocaleDateString('en-US', {
@@ -267,6 +281,37 @@ export default function EmployeeAttendancePage() {
                   ))}
                 </TableBody>
               </Table>
+              {attendance.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, attendance.length)} of {attendance.length} records
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </CardContent>
         </Card>

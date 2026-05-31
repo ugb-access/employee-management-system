@@ -40,7 +40,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Pencil, Loader2, Download, Plus } from 'lucide-react'
+import { Pencil, Loader2, Download, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { exportToCSV, formatDateForExport, formatTimeForExport } from '@/lib/export'
 import { formatLocalDate, formatTime, formatTimeForInput } from '@/lib/calculations'
 import { toast } from 'sonner'
@@ -74,6 +74,8 @@ interface Employee {
   employeeId: string | null
 }
 
+const PAGE_SIZE = 10
+
 export default function AdminAttendancePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -81,6 +83,7 @@ export default function AdminAttendancePage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [initialLoading, setInitialLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(() => getCurrentMonthRange())
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Track last fetched to prevent duplicate fetches
   const lastFetchedRef = useRef<string>('')
@@ -330,6 +333,15 @@ export default function AdminAttendancePage() {
     toast.success('Attendance exported successfully')
   }
 
+  const handleDateFilterChange = (value: DateFilterValue) => {
+    setCurrentPage(1)
+    setDateFilter(value)
+  }
+
+  const totalPages = Math.ceil(attendance.length / PAGE_SIZE)
+  const paginatedAttendance = attendance.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const pageStart = (currentPage - 1) * PAGE_SIZE
+
   // Get max date for manual attendance (today)
   const getMaxDate = () => {
     // Use local date formatting to avoid timezone offset issues
@@ -375,7 +387,7 @@ export default function AdminAttendancePage() {
           <DateFilter
             modes={['month', 'range']}
             monthCount={12}
-            onChange={setDateFilter}
+            onChange={handleDateFilterChange}
           />
         </div>
 
@@ -392,6 +404,7 @@ export default function AdminAttendancePage() {
                 No attendance records found for the selected period.
               </div>
             ) : (
+              <>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -409,7 +422,7 @@ export default function AdminAttendancePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {attendance.map((record) => (
+                    {paginatedAttendance.map((record) => (
                       <TableRow key={record.id}>
                         <TableCell>
                           <div>
@@ -502,6 +515,37 @@ export default function AdminAttendancePage() {
                   </TableBody>
                 </Table>
               </div>
+              {attendance.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, attendance.length)} of {attendance.length} records
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </CardContent>
         </Card>
