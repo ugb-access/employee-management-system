@@ -34,7 +34,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Plus, Calendar, AlertTriangle, CheckCircle, XCircle, Loader2, Trash2, Info, Coins } from 'lucide-react'
+import { Plus, Calendar, AlertTriangle, CheckCircle, XCircle, Loader2, Trash2, Info, Coins, CalendarRange } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
 import { DateFilter, DateFilterValue, getCurrentMonthRange } from '@/components/date-filter'
@@ -53,6 +53,7 @@ interface GlobalSettings {
   leaveCost: number
   warningLeaveCount: number
   dangerLeaveCount: number
+  workingDays: string
 }
 
 export default function EmployeeLeavesPage() {
@@ -86,9 +87,12 @@ export default function EmployeeLeavesPage() {
 
   // Leave request dialog
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [rangeMode, setRangeMode] = useState(false)
   const [formData, setFormData] = useState({
     date: '',
+    endDate: '',
     reason: '',
+    leaveType: 'UNPAID' as 'PAID' | 'UNPAID' | 'SICK' | 'CASUAL',
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -190,12 +194,15 @@ export default function EmployeeLeavesPage() {
     setSubmitting(true)
 
     try {
-      const response = await fetch('/api/leaves', {
+      const url = rangeMode && formData.endDate ? '/api/leaves/batch' : '/api/leaves'
+      const body = rangeMode && formData.endDate
+        ? { startDate: formData.date, endDate: formData.endDate, reason: formData.reason, leaveType: formData.leaveType }
+        : { date: formData.date, reason: formData.reason, leaveType: formData.leaveType }
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       })
 
       const data = await response.json()
@@ -207,10 +214,16 @@ export default function EmployeeLeavesPage() {
       if (data.warnings && data.warnings.length > 0) {
         data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }))
       } else {
-        toast.success('Leave request submitted successfully')
+        toast.success(data.message || 'Leave request submitted successfully')
       }
+
+      if (data.skipped && data.skipped.length > 0) {
+        toast.info(`${data.skipped.length} day(s) skipped (weekends, holidays, or duplicates)`, { duration: 6000 })
+      }
+
       setDialogOpen(false)
-      setFormData({ date: '', reason: '' })
+      setFormData({ date: '', endDate: '', reason: '', leaveType: 'UNPAID' })
+      setRangeMode(false)
       fetchData()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to submit leave request')
@@ -262,6 +275,24 @@ export default function EmployeeLeavesPage() {
   // Annual pool warnings for the dialog (computed from annualBalance + current month usage)
   const annualPoolExhausted = annualBalance ? annualBalance.used >= annualBalance.limit : false
   const monthlyExceeded = leaveBalance.remaining === 0 && !annualPoolExhausted
+
+  // Preview working days in range (client-side, excludes non-working days only)
+  const previewDates = (() => {
+    if (!rangeMode || !formData.date || !formData.endDate) return []
+    const wd = globalSettings?.workingDays.split(',').map(Number) ?? [1, 2, 3, 4, 5]
+    const start = new Date(formData.date + 'T00:00:00.000Z')
+    const end = new Date(formData.endDate + 'T00:00:00.000Z')
+    if (start > end) return []
+    const dates: Date[] = []
+    const cur = new Date(start)
+    while (cur.getTime() <= end.getTime() && dates.length <= 30) {
+      const day = cur.getUTCDay()
+      const iso = day === 0 ? 7 : day
+      if (wd.includes(iso)) dates.push(new Date(cur))
+      cur.setUTCDate(cur.getUTCDate() + 1)
+    }
+    return dates
+  })()
 
   if (status === 'loading' || loading) {
     return (
@@ -518,8 +549,8 @@ export default function EmployeeLeavesPage() {
       </div>
 
       {/* Request Leave Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setRangeMode(false); setFormData({ date: '', endDate: '', reason: '', leaveType: 'UNPAID' }) } }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Request Leave</DialogTitle>
             <DialogDescription>
@@ -527,6 +558,25 @@ export default function EmployeeLeavesPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Mode toggle */}
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => { setRangeMode(false); setFormData(f => ({ ...f, endDate: '' })) }}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${!rangeMode ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              >
+                Single Day
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeMode(true)}
+                className={`flex-1 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${rangeMode ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:bg-muted'}`}
+              >
+                <CalendarRange className="h-4 w-4" />
+                Date Range
+              </button>
+            </div>
+
             {/* Leave Balance Info */}
             <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
               <div className="flex justify-between">
@@ -563,29 +613,99 @@ export default function EmployeeLeavesPage() {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                min={getMinDate()}
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData({ ...formData, date: e.target.value })
-                }
-                required
-              />
-            </div>
+            {/* Date inputs */}
+            {!rangeMode ? (
+              <div className="space-y-2">
+                <Label htmlFor="date">Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  min={getMinDate()}
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  required
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">From *</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    min={getMinDate()}
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endDate">To *</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    min={formData.date || getMinDate()}
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Range preview */}
+            {rangeMode && previewDates.length > 0 && (
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <p className="font-medium mb-1.5">
+                  {previewDates.length} working day(s) selected
+                  <span className="text-muted-foreground font-normal"> (holidays excluded at submission)</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {previewDates.slice(0, 20).map(d => (
+                    <span key={d.toISOString()} className="px-2 py-0.5 bg-background border rounded text-xs">
+                      {d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                  ))}
+                  {previewDates.length > 20 && (
+                    <span className="px-2 py-0.5 text-xs text-muted-foreground">+{previewDates.length - 20} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+            {rangeMode && formData.date && formData.endDate && previewDates.length === 0 && (
+              <p className="text-sm text-destructive">No working days in selected range.</p>
+            )}
 
             {/* Cost Warning */}
             {leaveBalance.remaining === 0 && (
               <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
                 <Coins className="h-4 w-4 text-orange-600" />
                 <AlertDescription className="text-orange-800 dark:text-orange-200">
-                  You've used all your free paid leaves. This leave will cost <strong>Rs.{potentialCost}</strong>.
+                  You&apos;ve used all your free paid leaves. This leave will cost <strong>Rs.{potentialCost}</strong> per day.
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* Leave Type */}
+            <div className="space-y-2">
+              <Label>Leave Type</Label>
+              <div className="flex gap-2 flex-wrap">
+                {(['UNPAID', 'PAID', 'SICK', 'CASUAL'] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFormData(f => ({ ...f, leaveType: t }))}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      formData.leaveType === t
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    {t.charAt(0) + t.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="reason">Reason *</Label>
@@ -593,9 +713,7 @@ export default function EmployeeLeavesPage() {
                 id="reason"
                 placeholder="Please provide a reason for your leave request (min 10 characters)"
                 value={formData.reason}
-                onChange={(e) =>
-                  setFormData({ ...formData, reason: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 required
                 minLength={10}
                 rows={3}
@@ -611,7 +729,13 @@ export default function EmployeeLeavesPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={submitting || !formData.date || formData.reason.length < 10}
+                disabled={
+                  submitting ||
+                  !formData.date ||
+                  formData.reason.length < 10 ||
+                  (rangeMode && !formData.endDate) ||
+                  (rangeMode && previewDates.length === 0)
+                }
               >
                 {submitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
