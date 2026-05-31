@@ -34,34 +34,40 @@ import {
   Pie,
   Cell,
   Legend,
+  Label,
 } from 'recharts'
+import { computeAbsentDays, isSameCalendarDate } from '@/lib/calculations'
 
 interface ReportStats {
   totalEmployees: number
-  totalAttendance: number
   totalLeaves: number
-  totalFines: number
-  averageHours: number
-  presentToday: number
-  absentToday: number
-  lateToday: number
+  totalLateFines: number
+  totalAbsenceFines: number
+  grandTotalFines: number
 }
 
 interface EmployeeReport {
   id: string
   name: string
   employeeId: string | null
-  totalDays: number
   presentDays: number
-  absentDays: number
+  onTimeDays: number
   lateDays: number
-  totalFines: number
-  totalHours: number
-  averageHours: number
+  absentDays: number
   leaveCount: number
+  totalHours: number
+  lateFine: number
+  absenceFine: number
+  totalFine: number
 }
 
-const COLORS = ['#22c55e', '#ef4444', '#f59e0b', '#3b82f6']
+const BAR_COLORS = {
+  onTime: '#22c55e',
+  late: '#f59e0b',
+  leave: '#3b82f6',
+  absent: '#ef4444',
+}
+const FINE_COLORS = ['#f59e0b', '#ef4444']
 
 export default function AdminReportsPage() {
   const { data: session, status } = useSession()
@@ -94,121 +100,118 @@ export default function AdminReportsPage() {
 
   const fetchReportData = useCallback(async () => {
     try {
-      const [attendanceRes, employeesRes, leavesRes] = await Promise.all([
+      const [attendanceRes, employeesRes, leavesRes, settingsRes, holidaysRes] = await Promise.all([
         fetch(`/api/attendance?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`),
-        fetch('/api/employees'),
+        fetch('/api/employees?all=true'),
         fetch(`/api/leaves?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`),
+        fetch('/api/settings'),
+        fetch('/api/holidays'),
       ])
 
       const attendanceData = await attendanceRes.json()
       const employeesData = await employeesRes.json()
       const leavesData = await leavesRes.json()
+      const settingsData = settingsRes.ok ? await settingsRes.json() : null
+      const holidaysData = holidaysRes.ok ? await holidaysRes.json() : null
 
       if (attendanceRes.ok && employeesRes.ok && leavesRes.ok) {
         const employees = employeesData.employees
         const attendance = attendanceData.attendance
         const allLeaves = leavesData.leaves
 
-        // Filter leaves by selected date range client-side
+        const approvedLeaves = allLeaves.filter((l: { status: string }) => l.status === 'APPROVED')
+
         const rangeStart = new Date(dateFilter.startDate + 'T00:00:00.000Z')
         const rangeEnd = new Date(dateFilter.endDate + 'T00:00:00.000Z')
-        const leaves = allLeaves.filter((l: { date: string }) => {
-          const d = new Date(l.date)
-          return d >= rangeStart && d <= rangeEnd
-        })
 
-        // Calculate overall stats
-        const totalFines = attendance.reduce(
-          (sum: number, a: { fineAmount: number }) => sum + a.fineAmount,
-          0
-        )
-        const totalHours = attendance.reduce(
-          (sum: number, a: { totalHours: number }) => sum + (a.totalHours || 0),
-          0
-        )
-        const averageHours = attendance.length > 0 ? totalHours / attendance.length : 0
+        // Parse working days and holidays from settings
+        const workingDays: number[] = settingsData?.settings?.workingDays
+          ? settingsData.settings.workingDays.split(',').map(Number)
+          : [1, 2, 3, 4, 5]
+        const leaveCost: number = settingsData?.settings?.leaveCost || 0
 
-        // Today's stats - compare UTC date parts
-        const today = new Date()
-        const todayAttendance = attendance.filter(
-          (a: { date: string }) => {
-            const d = new Date(a.date)
-            return d.getUTCFullYear() === today.getUTCFullYear() &&
-                   d.getUTCMonth() === today.getUTCMonth() &&
-                   d.getUTCDate() === today.getUTCDate()
-          }
-        )
-        const presentToday = todayAttendance.length
-        const absentToday = employees.length - presentToday
-        const lateToday = todayAttendance.filter(
-          (a: { lateMinutes: number }) => a.lateMinutes > 0
-        ).length
+        const allHolidays: { date: string }[] = holidaysData?.holidays || []
+        const holidayDates = allHolidays
+          .filter((h) => {
+            const d = new Date(h.date)
+            return d >= rangeStart && d <= rangeEnd
+          })
+          .map((h) => new Date(h.date))
 
-        setStats({
-          totalEmployees: employees.length,
-          totalAttendance: attendance.length,
-          totalLeaves: leaves.filter(
-            (l: { status: string }) => l.status === 'APPROVED'
-          ).length,
-          totalFines,
-          averageHours,
-          presentToday,
-          absentToday,
-          lateToday,
-        })
-
-        // Calculate working days in selected date range (Mon–Fri)
+        // Calculate working days in range (using configured workingDays, minus holidays)
         let workingDayCount = 0
-        for (let d = new Date(rangeStart); d <= rangeEnd; d.setUTCDate(d.getUTCDate() + 1)) {
-          const dayOfWeek = d.getUTCDay()
-          if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        for (let d = new Date(rangeStart); d.getTime() <= rangeEnd.getTime(); d.setUTCDate(d.getUTCDate() + 1)) {
+          const utcDay = d.getUTCDay()
+          const isoWeekday = utcDay === 0 ? 7 : utcDay
+          if (workingDays.includes(isoWeekday) && !holidayDates.some(h => isSameCalendarDate(h, d))) {
             workingDayCount++
           }
         }
 
-        // Calculate per-employee stats
+        // Per-employee reports
         const reports: EmployeeReport[] = employees.map(
           (emp: { id: string; name: string; employeeId: string | null }) => {
             const empAttendance = attendance.filter(
               (a: { userId: string }) => a.userId === emp.id
             )
-            const empLeaves = leaves.filter(
-              (l: { userId: string; status: string }) =>
-                l.userId === emp.id && l.status === 'APPROVED'
+            const empLeaves = approvedLeaves.filter(
+              (l: { userId: string }) => l.userId === emp.id
             )
 
             const presentDays = empAttendance.length
             const lateDays = empAttendance.filter(
               (a: { lateMinutes: number }) => a.lateMinutes > 0
             ).length
-            const empTotalFines = empAttendance.reduce(
-              (sum: number, a: { fineAmount: number }) => sum + a.fineAmount,
-              0
-            )
+            const onTimeDays = presentDays - lateDays
             const empTotalHours = empAttendance.reduce(
               (sum: number, a: { totalHours: number }) => sum + (a.totalHours || 0),
               0
             )
-            const empAvgHours = presentDays > 0 ? empTotalHours / presentDays : 0
+            const lateFine = empAttendance.reduce(
+              (sum: number, a: { fineAmount: number }) => sum + a.fineAmount,
+              0
+            )
 
-            const totalDays = workingDayCount
-            const absentDays = totalDays - presentDays - empLeaves.length
+            const empAbsentDays = computeAbsentDays(
+              rangeStart,
+              rangeEnd,
+              workingDays,
+              empAttendance.map((a: { date: string }) => new Date(a.date)),
+              empLeaves.map((l: { date: string }) => new Date(l.date)),
+              [],
+              holidayDates
+            )
+            const absentDays = empAbsentDays.length
+            const absenceFine = absentDays * leaveCost
+            const totalFine = lateFine + absenceFine
 
             return {
               id: emp.id,
               name: emp.name,
               employeeId: emp.employeeId,
-              totalDays,
               presentDays,
-              absentDays: Math.max(0, absentDays),
+              onTimeDays,
               lateDays,
-              totalFines: empTotalFines,
-              totalHours: empTotalHours,
-              averageHours: empAvgHours,
+              absentDays,
               leaveCount: empLeaves.length,
+              totalHours: empTotalHours,
+              lateFine,
+              absenceFine,
+              totalFine,
             }
           }
         )
+
+        const totalLateFines = reports.reduce((sum, r) => sum + r.lateFine, 0)
+        const totalAbsenceFines = reports.reduce((sum, r) => sum + r.absenceFine, 0)
+
+        setStats({
+          totalEmployees: employees.length,
+          totalLeaves: approvedLeaves.length,
+          totalLateFines,
+          totalAbsenceFines,
+          grandTotalFines: totalLateFines + totalAbsenceFines,
+        })
 
         setEmployeeReports(reports)
       }
@@ -219,20 +222,24 @@ export default function AdminReportsPage() {
     }
   }, [dateFilter.startDate, dateFilter.endDate])
 
-  // Chart data
-  const attendanceChartData = employeeReports.slice(0, 10).map((emp) => ({
-    name: emp.name?.split(' ')[0] || 'Unknown',
-    present: emp.presentDays,
-    late: emp.lateDays,
-  }))
+  // Chart data — top 8 employees by present days
+  const barChartData = employeeReports
+    .slice()
+    .sort((a, b) => b.presentDays - a.presentDays)
+    .slice(0, 8)
+    .map((emp) => ({
+      name: emp.name?.split(' ')[0] || 'Unknown',
+      onTime: emp.onTimeDays,
+      late: emp.lateDays,
+      leave: emp.leaveCount,
+      absent: emp.absentDays,
+    }))
 
-  const pieData = stats
-    ? [
-        { name: 'Present', value: stats.presentToday },
-        { name: 'Absent', value: stats.absentToday },
-        { name: 'Late', value: stats.lateToday },
-      ]
-    : []
+  const grandTotal = stats?.grandTotalFines || 0
+  const fineData = [
+    { name: 'Late Fine', value: stats?.totalLateFines || 0 },
+    { name: 'Absence Fine', value: stats?.totalAbsenceFines || 0 },
+  ].filter(d => d.value > 0)
 
   if (status === 'loading' || initialLoading) {
     return (
@@ -277,31 +284,31 @@ export default function AdminReportsPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Total Fines</CardDescription>
+              <CardDescription>Late Fines</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-500">
+                Rs.{stats?.totalLateFines || 0}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Absence Fines</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-red-500">
-                Rs.{stats?.totalFines || 0}
+                Rs.{stats?.totalAbsenceFines || 0}
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Avg. Work Hours</CardDescription>
+              <CardDescription>Grand Total Fines</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {stats?.averageHours.toFixed(1) || 0}h
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Approved Leaves</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {stats?.totalLeaves || 0}
+              <div className="text-3xl font-bold text-red-700">
+                Rs.{stats?.grandTotalFines || 0}
               </div>
             </CardContent>
           </Card>
@@ -309,60 +316,71 @@ export default function AdminReportsPage() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Stacked bar: present/late/leave/absent per employee */}
           <Card>
             <CardHeader>
-              <CardTitle>Attendance Overview</CardTitle>
-              <CardDescription>Present vs Late days by employee</CardDescription>
+              <CardTitle>Attendance Breakdown</CardTitle>
+              <CardDescription>Top 8 employees — on time, late, leave, absent</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={attendanceChartData}>
+                  <BarChart data={barChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="present" fill="#22c55e" name="Present" />
-                    <Bar dataKey="late" fill="#f59e0b" name="Late" />
+                    <Bar dataKey="onTime" stackId="a" fill={BAR_COLORS.onTime} name="On Time" />
+                    <Bar dataKey="late" stackId="a" fill={BAR_COLORS.late} name="Late" />
+                    <Bar dataKey="leave" stackId="a" fill={BAR_COLORS.leave} name="On Leave" />
+                    <Bar dataKey="absent" stackId="a" fill={BAR_COLORS.absent} name="Absent" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
+          {/* Donut: fine distribution */}
           <Card>
             <CardHeader>
-              <CardTitle>Today&apos;s Status</CardTitle>
-              <CardDescription>Attendance breakdown for today</CardDescription>
+              <CardTitle>Fine Distribution</CardTitle>
+              <CardDescription>Late fines vs. absence fines for the period</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) =>
-                        `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                      }
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {pieData.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
+                {fineData.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No fines for this period
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={fineData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        dataKey="value"
+                      >
+                        <Label
+                          value={`Rs.${grandTotal}`}
+                          position="center"
+                          className="text-sm font-bold"
                         />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                        {fineData.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={FINE_COLORS[index % FINE_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => `Rs.${value}`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -373,7 +391,7 @@ export default function AdminReportsPage() {
           <CardHeader>
             <CardTitle>Employee Performance Report</CardTitle>
             <CardDescription>
-              Detailed attendance and leave statistics per employee
+              Attendance, leave, and fine details per employee
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -381,13 +399,13 @@ export default function AdminReportsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
-                  <TableHead className="text-center">Working Days</TableHead>
                   <TableHead className="text-center">Present</TableHead>
                   <TableHead className="text-center">Absent</TableHead>
                   <TableHead className="text-center">Late</TableHead>
                   <TableHead className="text-center">Leaves</TableHead>
-                  <TableHead className="text-center">Avg Hours</TableHead>
-                  <TableHead className="text-center">Total Fines</TableHead>
+                  <TableHead className="text-center">Late Fine</TableHead>
+                  <TableHead className="text-center">Absence Fine</TableHead>
+                  <TableHead className="text-center">Total Fine</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -402,44 +420,32 @@ export default function AdminReportsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      {report.totalDays}
+                      <Badge className="bg-green-500">{report.presentDays}</Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge className="bg-green-500">
-                        {report.presentDays}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant={
-                          report.absentDays > 3 ? 'destructive' : 'secondary'
-                        }
-                      >
+                      <Badge variant={report.absentDays > 3 ? 'destructive' : 'secondary'}>
                         {report.absentDays}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge
-                        variant={
-                          report.lateDays > 3 ? 'destructive' : 'secondary'
-                        }
-                      >
+                      <Badge variant={report.lateDays > 3 ? 'destructive' : 'secondary'}>
                         {report.lateDays}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-center">{report.leaveCount}</TableCell>
                     <TableCell className="text-center">
-                      {report.leaveCount}
+                      <span className={report.lateFine > 0 ? 'text-orange-500 font-medium' : ''}>
+                        Rs.{report.lateFine}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      {report.averageHours.toFixed(1)}h
+                      <span className={report.absenceFine > 0 ? 'text-red-500 font-medium' : ''}>
+                        Rs.{report.absenceFine}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span
-                        className={
-                          report.totalFines > 0 ? 'text-red-500 font-medium' : ''
-                        }
-                      >
-                        Rs.{report.totalFines}
+                      <span className={report.totalFine > 0 ? 'text-red-700 font-bold' : ''}>
+                        Rs.{report.totalFine}
                       </span>
                     </TableCell>
                   </TableRow>

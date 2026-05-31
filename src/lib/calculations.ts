@@ -300,3 +300,42 @@ export function isSameCalendarDate(date1: Date, date2: Date): boolean {
          date1.getUTCMonth() === date2.getUTCMonth() &&
          date1.getUTCDate() === date2.getUTCDate()
 }
+
+/**
+ * Compute absent days in a date range.
+ * A day is absent if it's a working day, in the past, and not covered by
+ * a present record, approved leave, off-day, or public holiday.
+ */
+export function computeAbsentDays(
+  startDate: Date,
+  endDate: Date,
+  workingDays: number[],
+  presentDates: Date[],
+  leaveDates: Date[],
+  offDayDates: Date[],
+  holidayDates: Date[]
+): Date[] {
+  const absentDays: Date[] = []
+  const now = new Date()
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+
+  const current = new Date(startDate)
+  while (current.getTime() <= endDate.getTime()) {
+    if (current.getTime() < todayUTC.getTime()) {
+      const utcDay = current.getUTCDay()
+      const isoWeekday = utcDay === 0 ? 7 : utcDay
+      if (
+        workingDays.includes(isoWeekday) &&
+        !presentDates.some(d => isSameCalendarDate(d, current)) &&
+        !leaveDates.some(d => isSameCalendarDate(d, current)) &&
+        !offDayDates.some(d => isSameCalendarDate(d, current)) &&
+        !holidayDates.some(d => isSameCalendarDate(d, current))
+      ) {
+        absentDays.push(new Date(current))
+      }
+    }
+    current.setUTCDate(current.getUTCDate() + 1)
+  }
+
+  return absentDays
+}

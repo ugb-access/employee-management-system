@@ -28,8 +28,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Check, X, Clock, Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Check, X, Clock, Loader2, Plus } from 'lucide-react'
 import { PageLoader } from '@/components/ui/loader'
+import { DateFilter, DateFilterValue, getCurrentMonthRange } from '@/components/date-filter'
+import { toast } from 'sonner'
 
 interface User {
   id: string
@@ -56,6 +69,12 @@ interface Leave {
   approver: Approver | null
 }
 
+interface EmployeeOption {
+  id: string
+  name: string | null
+  employeeId: string | null
+}
+
 export default function AdminLeavesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -64,6 +83,18 @@ export default function AdminLeavesPage() {
   const [processing, setProcessing] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<string>('all')
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(() => getCurrentMonthRange())
+
+  // Add leave dialog state
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [employees, setEmployees] = useState<EmployeeOption[]>([])
+  const [addForm, setAddForm] = useState({
+    userId: '',
+    date: '',
+    leaveType: 'UNPAID' as 'PAID' | 'UNPAID' | 'SICK' | 'CASUAL',
+    reason: '',
+  })
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -77,12 +108,15 @@ export default function AdminLeavesPage() {
     if (session && session.user.role === 'ADMIN') {
       fetchLeaves()
     }
-  }, [session, filter])
+  }, [session, filter, dateFilter.startDate, dateFilter.endDate])
 
   const fetchLeaves = async () => {
     try {
-      const statusParam = filter !== 'all' ? `?status=${filter}` : ''
-      const response = await fetch(`/api/leaves${statusParam}`)
+      const params = new URLSearchParams()
+      if (filter !== 'all') params.set('status', filter)
+      params.set('startDate', dateFilter.startDate)
+      params.set('endDate', dateFilter.endDate)
+      const response = await fetch(`/api/leaves?${params}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -94,6 +128,43 @@ export default function AdminLeavesPage() {
       setError(err instanceof Error ? err.message : 'Failed to fetch leaves')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('/api/employees?all=true&status=active')
+      const data = await res.json()
+      if (res.ok) setEmployees(data.employees || [])
+    } catch {
+      // non-critical
+    }
+  }
+
+  const handleOpenAddDialog = () => {
+    fetchEmployees()
+    setAddForm({ userId: '', date: '', leaveType: 'UNPAID', reason: '' })
+    setAddDialogOpen(true)
+  }
+
+  const handleAddLeave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      const response = await fetch('/api/leaves', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addForm),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to create leave')
+      toast.success('Leave created and approved')
+      setAddDialogOpen(false)
+      fetchLeaves()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create leave')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -119,7 +190,6 @@ export default function AdminLeavesPage() {
         throw new Error(data.error || 'Failed to process leave')
       }
 
-      // Refresh the list
       fetchLeaves()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to process leave')
@@ -168,26 +238,37 @@ export default function AdminLeavesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Leave Management</h1>
             <p className="text-muted-foreground">
               Review and manage employee leave requests
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Leaves</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <DateFilter
+              modes={['month', 'range']}
+              monthCount={12}
+              onChange={setDateFilter}
+            />
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Leaves</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleOpenAddDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Leave
+            </Button>
           </div>
         </div>
 
@@ -294,6 +375,93 @@ export default function AdminLeavesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Leave Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Leave</DialogTitle>
+            <DialogDescription>
+              Create an approved leave for an employee. Past dates are allowed.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddLeave} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-employee">Employee *</Label>
+              <Select
+                value={addForm.userId}
+                onValueChange={(v) => setAddForm({ ...addForm, userId: v })}
+              >
+                <SelectTrigger id="add-employee">
+                  <SelectValue placeholder="Select employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.name} {emp.employeeId ? `(${emp.employeeId})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-date">Date *</Label>
+              <Input
+                id="add-date"
+                type="date"
+                value={addForm.date}
+                onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-type">Leave Type</Label>
+              <Select
+                value={addForm.leaveType}
+                onValueChange={(v) => setAddForm({ ...addForm, leaveType: v as 'PAID' | 'UNPAID' | 'SICK' | 'CASUAL' })}
+              >
+                <SelectTrigger id="add-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PAID">Paid</SelectItem>
+                  <SelectItem value="UNPAID">Unpaid</SelectItem>
+                  <SelectItem value="SICK">Sick</SelectItem>
+                  <SelectItem value="CASUAL">Casual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="add-reason">Reason *</Label>
+              <Textarea
+                id="add-reason"
+                placeholder="Reason for leave (min 10 characters)"
+                value={addForm.reason}
+                onChange={(e) => setAddForm({ ...addForm, reason: e.target.value })}
+                required
+                minLength={10}
+                rows={3}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting || !addForm.userId || !addForm.date || addForm.reason.length < 10}
+              >
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create & Approve
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

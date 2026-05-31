@@ -37,6 +37,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Plus, Calendar, AlertTriangle, CheckCircle, XCircle, Loader2, Trash2, Info, Coins } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
+import { DateFilter, DateFilterValue, getCurrentMonthRange } from '@/components/date-filter'
 
 interface Leave {
   id: string
@@ -61,6 +62,7 @@ export default function EmployeeLeavesPage() {
   const [leaves, setLeaves] = useState<Leave[]>([])
   const [loading, setLoading] = useState(true)
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null)
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(() => getCurrentMonthRange())
 
   // Leave balance
   const [leaveBalance, setLeaveBalance] = useState({
@@ -99,12 +101,12 @@ export default function EmployeeLeavesPage() {
     if (session) {
       fetchData()
     }
-  }, [session])
+  }, [session, dateFilter.startDate, dateFilter.endDate])
 
   const fetchData = async () => {
     try {
       const [leavesRes, settingsRes] = await Promise.all([
-        fetch('/api/leaves'),
+        fetch(`/api/leaves?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`),
         fetch('/api/settings'),
       ])
 
@@ -266,17 +268,24 @@ export default function EmployeeLeavesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">My Leaves</h1>
             <p className="text-muted-foreground">
               Request and manage your leave applications
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Request Leave
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <DateFilter
+              modes={['month', 'range']}
+              monthCount={12}
+              onChange={setDateFilter}
+            />
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Request Leave
+            </Button>
+          </div>
         </div>
 
         {/* Leave Balance Card */}
