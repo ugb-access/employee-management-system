@@ -17,6 +17,7 @@ export interface TermsSettings {
   lateFinePer30Min: number
   leaveCost: number
   paidLeavesPerMonth: number
+  annualLeavesPerYear: number
   warningLeaveCount: number
   dangerLeaveCount: number
   workingDays: string | number[]
@@ -98,8 +99,9 @@ ${
 
 <h2>4. Leaves</h2>
 <ul>
-  <li><strong>Free paid leaves:</strong> ${settings.paidLeavesPerMonth} paid leave(s) per month.</li>
-  <li><strong>Unpaid leave cost:</strong> Rs. ${settings.leaveCost} is deducted for each leave taken beyond your free monthly allowance.</li>
+  <li><strong>Annual leave pool:</strong> ${settings.annualLeavesPerYear} leaves per calendar year.</li>
+  <li><strong>Free monthly leaves:</strong> ${settings.paidLeavesPerMonth} paid leave(s) each month. Leaves taken beyond this in a month are drawn from your annual pool.</li>
+  <li><strong>Annual pool exhausted:</strong> once you have used all ${settings.annualLeavesPerYear} annual leaves, any further leave is unpaid and a deduction of Rs. ${settings.leaveCost} applies per leave.</li>
   <li><strong>Warning threshold:</strong> Taking ${settings.warningLeaveCount} or more leaves in a month places you in the <em>warning</em> zone.</li>
   <li><strong>Danger threshold:</strong> Taking ${settings.dangerLeaveCount} or more leaves in a month places you in the <em>danger</em> zone.</li>
 </ul>

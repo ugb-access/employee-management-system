@@ -13,6 +13,7 @@ function toTermsSettings(settings: {
   lateFinePer30Min: number
   leaveCost: number
   paidLeavesPerMonth: number
+  annualLeavesPerYear: number
   warningLeaveCount: number
   dangerLeaveCount: number
   workingDays: string
@@ -27,6 +28,7 @@ function toTermsSettings(settings: {
     lateFinePer30Min: settings.lateFinePer30Min,
     leaveCost: settings.leaveCost,
     paidLeavesPerMonth: settings.paidLeavesPerMonth,
+    annualLeavesPerYear: settings.annualLeavesPerYear,
     warningLeaveCount: settings.warningLeaveCount,
     dangerLeaveCount: settings.dangerLeaveCount,
     workingDays: settings.workingDays,
