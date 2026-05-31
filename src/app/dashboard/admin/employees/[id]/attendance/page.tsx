@@ -101,6 +101,7 @@ interface GlobalSettings {
   requiredWorkHours: number
   workingDays: string
   leaveCost: number
+  annualLeavesPerYear: number
 }
 
 type TimelineRow =
@@ -273,7 +274,18 @@ export default function EmployeeAttendancePage() {
   // Stats
   const leaveCost = globalSettings?.leaveCost || 0
   const lateFine = attendance.reduce((sum, r) => sum + r.fineAmount, 0)
-  const absenceFine = absentDays.length * leaveCost
+  const annualPool = globalSettings?.annualLeavesPerYear ?? 12
+  const currentYear = new Date().getUTCFullYear()
+  const yearStart = new Date(`${currentYear}-01-01T00:00:00.000Z`)
+  const yearEnd = new Date(`${currentYear}-12-31T23:59:59.999Z`)
+  const annualLeavesUsed = leaves.filter(l =>
+    l.status === 'APPROVED' &&
+    new Date(l.date) >= yearStart &&
+    new Date(l.date) <= yearEnd
+  ).length
+  const annualRemaining = Math.max(0, annualPool - annualLeavesUsed)
+  const fineWorthyAbsences = Math.max(0, absentDays.length - annualRemaining)
+  const absenceFine = fineWorthyAbsences * leaveCost
   const totalFine = lateFine + absenceFine
 
   const stats = {
