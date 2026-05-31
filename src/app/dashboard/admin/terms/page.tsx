@@ -55,13 +55,22 @@ export default function AdminTermsPage() {
       if (!termsRes.ok) {
         throw new Error(termsData.error || 'Failed to load terms')
       }
-      setContent(termsData.content || '')
-      setIsDefault(termsData.isDefault)
 
+      let loadedSettings: TermsSettings | null = null
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json()
-        setSettings(settingsData.settings)
+        loadedSettings = settingsData.settings
+        setSettings(loadedSettings)
       }
+
+      // Fallback: if the server returned no content but we have settings,
+      // generate the default document client-side so the editor is never blank.
+      let loadedContent: string = termsData.content || ''
+      if (loadedContent.trim().length === 0 && loadedSettings) {
+        loadedContent = generateDefaultTermsHtml(loadedSettings)
+      }
+      setContent(loadedContent)
+      setIsDefault(termsData.isDefault)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to load terms')
     } finally {
