@@ -54,6 +54,7 @@ model GlobalSettings {
   workingDays          String    @default("1,2,3,4,5")
   flexibleHoursEnabled Boolean   @default(false)
   termsContent         String?   @db.Text
+  annualLeavesPerYear  Int       @default(12)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   holidays             Holiday[]

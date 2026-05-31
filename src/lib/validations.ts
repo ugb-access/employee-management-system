@@ -73,6 +73,7 @@ export const globalSettingsSchema = z.object({
   dangerLeaveCount: z.number().min(0).max(31),
   workingDays: z.array(z.number().min(1).max(7)),
   flexibleHoursEnabled: z.boolean(),
+  annualLeavesPerYear: z.number().min(0).max(365),
 })
 
 export const holidaySchema = z.object({

@@ -63,6 +63,7 @@ export default function EmployeeLeavesPage() {
   const [loading, setLoading] = useState(true)
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null)
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(() => getCurrentMonthRange())
+  const [annualBalance, setAnnualBalance] = useState<{ used: number; limit: number; remaining: number } | null>(null)
 
   // Leave balance
   const [leaveBalance, setLeaveBalance] = useState({
@@ -113,6 +114,7 @@ export default function EmployeeLeavesPage() {
       if (leavesRes.ok) {
         const leavesData = await leavesRes.json()
         setLeaves(leavesData.leaves)
+        if (leavesData.annualBalance) setAnnualBalance(leavesData.annualBalance)
 
         // Calculate stats - only approved leaves from current month
         // Compare dates properly: DB dates are stored at midnight UTC
@@ -202,7 +204,11 @@ export default function EmployeeLeavesPage() {
         throw new Error(data.error || 'Failed to submit leave request')
       }
 
-      toast.success('Leave request submitted successfully')
+      if (data.warnings && data.warnings.length > 0) {
+        data.warnings.forEach((w: string) => toast.warning(w, { duration: 8000 }))
+      } else {
+        toast.success('Leave request submitted successfully')
+      }
       setDialogOpen(false)
       setFormData({ date: '', reason: '' })
       fetchData()
@@ -253,6 +259,10 @@ export default function EmployeeLeavesPage() {
   const leaveZone = getLeaveZone()
   const potentialCost = calculateLeaveCost()
 
+  // Annual pool warnings for the dialog (computed from annualBalance + current month usage)
+  const annualPoolExhausted = annualBalance ? annualBalance.used >= annualBalance.limit : false
+  const monthlyExceeded = leaveBalance.remaining === 0 && !annualPoolExhausted
+
   if (status === 'loading' || loading) {
     return (
       <DashboardLayout>
@@ -287,6 +297,49 @@ export default function EmployeeLeavesPage() {
             </Button>
           </div>
         </div>
+
+        {/* Annual Leave Balance Card */}
+        {annualBalance && (
+          <Card className={annualPoolExhausted ? 'border-red-400' : ''}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Annual Leave Pool — {new Date().getFullYear()}
+              </CardTitle>
+              <CardDescription>
+                Total leaves available per year across all months
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Annual Allocation</p>
+                  <p className="text-2xl font-bold">{annualBalance.limit}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Used This Year</p>
+                  <p className={`text-2xl font-bold ${annualBalance.used > 0 ? 'text-orange-500' : ''}`}>
+                    {annualBalance.used}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Remaining</p>
+                  <p className={`text-2xl font-bold ${annualBalance.remaining === 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    {annualBalance.remaining}
+                  </p>
+                </div>
+              </div>
+              {annualPoolExhausted && (
+                <Alert className="mt-4 border-red-500 bg-red-50 dark:bg-red-950">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800 dark:text-red-200">
+                    You have used all {annualBalance.limit} annual leaves. Any additional leave will be unpaid and subject to a deduction of Rs.{leaveBalance.leaveCost}.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Leave Balance Card */}
         <Card>
@@ -475,14 +528,40 @@ export default function EmployeeLeavesPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Leave Balance Info */}
-            <div className="p-3 bg-muted rounded-lg text-sm">
+            <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
               <div className="flex justify-between">
-                <span>Remaining paid leaves:</span>
+                <span>Monthly free leaves remaining:</span>
                 <span className={`font-medium ${leaveBalance.remaining === 0 ? 'text-red-500' : 'text-green-500'}`}>
                   {leaveBalance.remaining} / {leaveBalance.paidLeavesPerMonth}
                 </span>
               </div>
+              {annualBalance && (
+                <div className="flex justify-between">
+                  <span>Annual pool remaining:</span>
+                  <span className={`font-medium ${annualBalance.remaining === 0 ? 'text-red-500' : 'text-orange-500'}`}>
+                    {annualBalance.remaining} / {annualBalance.limit}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* Pre-submission warnings */}
+            {annualPoolExhausted && (
+              <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800 dark:text-red-200">
+                  <strong>Annual pool exhausted.</strong> This leave will be unpaid and a deduction of Rs.{leaveBalance.leaveCost} will apply.
+                </AlertDescription>
+              </Alert>
+            )}
+            {monthlyExceeded && annualBalance && (
+              <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800 dark:text-orange-200">
+                  Monthly free leaves used. This will deduct from your annual pool ({annualBalance.used + 1}/{annualBalance.limit} after this leave).
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="date">Date *</Label>

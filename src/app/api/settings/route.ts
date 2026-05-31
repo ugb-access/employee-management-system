@@ -29,6 +29,7 @@ export async function GET() {
           dangerLeaveCount: 5,
           workingDays: '1,2,3,4,5',
           flexibleHoursEnabled: false,
+          annualLeavesPerYear: 12,
         },
       })
     }
@@ -72,6 +73,7 @@ export async function PUT(req: Request) {
           dangerLeaveCount: validatedData.dangerLeaveCount,
           workingDays: validatedData.workingDays.join(','),
           flexibleHoursEnabled: validatedData.flexibleHoursEnabled,
+          annualLeavesPerYear: validatedData.annualLeavesPerYear,
         },
       })
     } else {
@@ -90,6 +92,7 @@ export async function PUT(req: Request) {
           dangerLeaveCount: validatedData.dangerLeaveCount,
           workingDays: validatedData.workingDays.join(','),
           flexibleHoursEnabled: validatedData.flexibleHoursEnabled,
+          annualLeavesPerYear: validatedData.annualLeavesPerYear,
         },
       })
     }
