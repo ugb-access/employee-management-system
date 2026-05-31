@@ -13,6 +13,7 @@ function toTermsSettings(settings: {
   lateFinePer30Min: number
   leaveCost: number
   paidLeavesPerMonth: number
+  annualLeavesPerYear: number
   warningLeaveCount: number
   dangerLeaveCount: number
   workingDays: string
@@ -27,6 +28,7 @@ function toTermsSettings(settings: {
     lateFinePer30Min: settings.lateFinePer30Min,
     leaveCost: settings.leaveCost,
     paidLeavesPerMonth: settings.paidLeavesPerMonth,
+    annualLeavesPerYear: settings.annualLeavesPerYear,
     warningLeaveCount: settings.warningLeaveCount,
     dangerLeaveCount: settings.dangerLeaveCount,
     workingDays: settings.workingDays,
@@ -43,11 +45,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const settings = await prisma.globalSettings.findFirst()
+    let settings = await prisma.globalSettings.findFirst()
 
-    // No settings yet -> nothing configured, return an empty default shell
+    // No settings row yet -> create one with defaults so the generated
+    // document is never empty (mirrors the /api/settings behavior).
     if (!settings) {
-      return NextResponse.json({ content: '', isDefault: true })
+      settings = await prisma.globalSettings.create({ data: {} })
     }
 
     if (settings.termsContent && settings.termsContent.trim().length > 0) {
