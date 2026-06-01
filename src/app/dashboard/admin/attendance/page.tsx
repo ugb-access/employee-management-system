@@ -46,10 +46,16 @@ import { formatLocalDate, formatTime, formatTimeForInput, computeAbsentDays } fr
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
 
+interface UserSettings {
+  checkInTime: string
+  checkOutTime: string
+}
+
 interface User {
   id: string
   name: string | null
   employeeId: string | null
+  settings?: UserSettings | null
 }
 
 interface Attendance {
@@ -299,12 +305,12 @@ export default function AdminAttendancePage() {
 
   const handleEditSubmit = async () => {
     if (!editingAttendance) return
-    const checkInTimeStr = globalSettingsState?.checkInTime || '09:00'
+    const checkInTimeStr = editingAttendance.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00'
     if (editForm.checkInTime > checkInTimeStr && !editForm.checkInReason.trim()) {
       toast.error('Check-in reason is required for late check-in')
       return
     }
-    const checkOutTimeStr = globalSettingsState?.checkOutTime || '17:00'
+    const checkOutTimeStr = editingAttendance.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'
     if (editForm.checkOutTime && editForm.checkOutTime < checkOutTimeStr && !editForm.checkOutReason.trim()) {
       toast.error('Check-out reason is required for early check-out')
       return
@@ -754,46 +760,46 @@ export default function AdminAttendancePage() {
               <div className="space-y-2">
                 <Label htmlFor="checkInReason">
                   Check In Reason
-                  {editForm.checkInTime > (globalSettingsState?.checkInTime || '09:00') && (
+                  {editForm.checkInTime > (editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00') && (
                     <span className="text-red-500 ml-1">*</span>
                   )}
                 </Label>
                 <Textarea
                   id="checkInReason"
                   placeholder={
-                    editForm.checkInTime > (globalSettingsState?.checkInTime || '09:00')
+                    editForm.checkInTime > (editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00')
                       ? 'Required: Reason for late check-in'
                       : 'Reason for late check-in (if any)'
                   }
                   value={editForm.checkInReason}
                   onChange={(e) => setEditForm({ ...editForm, checkInReason: e.target.value })}
                 />
-                {editForm.checkInTime > (globalSettingsState?.checkInTime || '09:00') && (
+                {editForm.checkInTime > (editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00') && (
                   <p className="text-xs text-muted-foreground">
-                    Check-in time is after {globalSettingsState?.checkInTime || '09:00'}. Reason is required.
+                    Check-in time is after {editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00'}. Reason is required.
                   </p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="checkOutReason">
                   Check Out Reason
-                  {editForm.checkOutTime && editForm.checkOutTime < (globalSettingsState?.checkOutTime || '17:00') && (
+                  {editForm.checkOutTime && editForm.checkOutTime < (editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00') && (
                     <span className="text-red-500 ml-1">*</span>
                   )}
                 </Label>
                 <Textarea
                   id="checkOutReason"
                   placeholder={
-                    editForm.checkOutTime && editForm.checkOutTime < (globalSettingsState?.checkOutTime || '17:00')
+                    editForm.checkOutTime && editForm.checkOutTime < (editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00')
                       ? 'Required: Reason for early check-out'
                       : 'Reason for early check-out (if any)'
                   }
                   value={editForm.checkOutReason}
                   onChange={(e) => setEditForm({ ...editForm, checkOutReason: e.target.value })}
                 />
-                {editForm.checkOutTime && editForm.checkOutTime < (globalSettingsState?.checkOutTime || '17:00') && (
+                {editForm.checkOutTime && editForm.checkOutTime < (editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00') && (
                   <p className="text-xs text-muted-foreground">
-                    Check-out time is before {globalSettingsState?.checkOutTime || '17:00'}. Reason is required.
+                    Check-out time is before {editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'}. Reason is required.
                   </p>
                 )}
               </div>

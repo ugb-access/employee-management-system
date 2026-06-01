@@ -77,6 +77,12 @@ export async function GET(req: Request) {
             email: true,
             designation: true,
             employeeId: true,
+            settings: {
+              select: {
+                checkInTime: true,
+                checkOutTime: true,
+              },
+            },
           },
         },
       },
