@@ -124,11 +124,9 @@ export async function PUT(
       updateData.checkInTime = newCheckIn
       updateData.checkInReason = validatedData.checkInReason || attendance.checkInReason
 
-      // Recalculate late fine - create a comparison date in the same "local" context
-      const compareTime = new Date(attendance.date)
-      compareTime.setHours(hours, minutes, 0, 0)
+      // Recalculate late fine using the correctly UTC-offset newCheckIn date
       const { lateMinutes, fineAmount } = calculateLateFine(
-        compareTime,
+        newCheckIn,
         settings.checkInTime,
         globalSettingsData
       )
@@ -149,7 +147,8 @@ export async function PUT(
       if (settings.checkOutTime) {
         const [outHours, outMinutes] = settings.checkOutTime.split(':').map(Number)
         const scheduledCheckOut = new Date(attendance.date)
-        scheduledCheckOut.setHours(outHours, outMinutes, 0, 0)
+        // Store as UTC by subtracting 5 hours (PKT offset)
+        scheduledCheckOut.setUTCHours(outHours - 5, outMinutes, 0, 0)
 
         const diffMs = scheduledCheckOut.getTime() - newCheckOut.getTime()
         if (diffMs > 0) {
