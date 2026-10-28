@@ -78,7 +78,7 @@ export function getNowPKT(): Date {
 /**
  * Calculate late arrival fine
  * Grace period: no fine if within grace period minutes
- * Flat fine once late beyond the grace period, regardless of how late
+ * Base fine + additional fine per 30 minutes after grace period
  * All time comparisons done in PKT timezone
  */
 export function calculateLateFine(
@@ -116,7 +116,13 @@ export function calculateLateFine(
     return { lateMinutes, fineAmount: 0 }
   }
 
-  return { lateMinutes, fineAmount: settings.lateFineBase }
+  // Calculate fine based on minutes after grace period
+  const minutesAfterGrace = lateMinutes - gracePeriod
+
+  // Base fine + additional fine for every 30 minutes after grace period
+  const fineAmount = settings.lateFineBase + Math.floor(minutesAfterGrace / 30) * settings.lateFinePer30Min
+
+  return { lateMinutes, fineAmount }
 }
 
 /**

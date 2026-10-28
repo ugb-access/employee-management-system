@@ -9,21 +9,16 @@ npx prisma db push
 npx prisma generate
 ```
 
-## Flat Late Fine & Missing Checkout Fine (this change)
+## Missing Checkout Fine (this change)
 
-The late arrival fine is now a flat amount (`lateFineBase`) charged once per
-late day; the per-30-minute fine has been removed. A new optional fine applies
-when an employee checks in but never checks out for the day.
+Adds an optional fine for when an employee checks in but never checks out for
+the day. (For a flat late fine, set "Fine per 30 mins late" to 0 in Settings.)
 
 ```sql
 ALTER TABLE "GlobalSettings" ADD COLUMN IF NOT EXISTS "missingCheckoutFineEnabled" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "GlobalSettings" ADD COLUMN IF NOT EXISTS "missingCheckoutFine" INTEGER NOT NULL DEFAULT 250;
 ALTER TABLE "GlobalSettings" ADD COLUMN IF NOT EXISTS "missingCheckoutFineFrom" DATE;
 ```
-
-The old `lateFinePer30Min` column is no longer used but is kept in the schema
-so `prisma db push` (which runs during the Vercel build) doesn't try to drop it
-while older deployments still read it. It can be removed in a later change.
 
 The missing checkout fine is off by default; enable it and set the amount
 under Admin → Settings. When it is switched on, it applies from the next day

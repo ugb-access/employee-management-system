@@ -43,6 +43,7 @@ interface GlobalSettings {
   requiredWorkHours: number
   gracePeriodMinutes: number
   lateFineBase: number
+  lateFinePer30Min: number
   missingCheckoutFineEnabled: boolean
   missingCheckoutFine: number
   missingCheckoutFineFrom: string | null
@@ -91,6 +92,7 @@ export default function AdminSettingsPage() {
     requiredWorkHours: 8,
     gracePeriodMinutes: 15,
     lateFineBase: 250,
+    lateFinePer30Min: 250,
     missingCheckoutFineEnabled: false,
     missingCheckoutFine: 250,
     leaveCost: 1000,
@@ -143,6 +145,7 @@ export default function AdminSettingsPage() {
           requiredWorkHours: settingsData.settings.requiredWorkHours,
           gracePeriodMinutes: settingsData.settings.gracePeriodMinutes ?? 15,
           lateFineBase: settingsData.settings.lateFineBase,
+          lateFinePer30Min: settingsData.settings.lateFinePer30Min,
           missingCheckoutFineEnabled: settingsData.settings.missingCheckoutFineEnabled ?? false,
           missingCheckoutFine: settingsData.settings.missingCheckoutFine ?? 250,
           leaveCost: settingsData.settings.leaveCost,
@@ -396,7 +399,7 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="lateFineBase">Late Arrival Fine (Rs.)</Label>
+                    <Label htmlFor="lateFineBase">Late Fine Base (Rs.)</Label>
                     <Input
                       id="lateFineBase"
                       type="number"
@@ -405,12 +408,33 @@ export default function AdminSettingsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          lateFineBase: parseInt(e.target.value) || 0,
+                          lateFineBase: parseInt(e.target.value),
                         })
                       }
                     />
                     <p className="text-xs text-muted-foreground">
-                      Flat fine charged once per late day, no matter how late
+                      Base fine charged for any lateness
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="lateFinePer30Min">
+                      Fine per 30 mins late (Rs.)
+                    </Label>
+                    <Input
+                      id="lateFinePer30Min"
+                      type="number"
+                      min="0"
+                      value={formData.lateFinePer30Min}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          lateFinePer30Min: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Additional fine for every 30 minutes late
                     </p>
                   </div>
 

@@ -17,6 +17,7 @@ async function main() {
       checkOutTime: '17:00',
       requiredWorkHours: 8.0,
       lateFineBase: 250,
+      lateFinePer30Min: 250,
       missingCheckoutFineEnabled: false,
       missingCheckoutFine: 250,
       leaveCost: 1000,

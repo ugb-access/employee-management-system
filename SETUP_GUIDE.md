@@ -75,7 +75,7 @@ employee-management/
 - [x] Admin dashboard with stats overview
 - [x] Employee dashboard with quick actions
 - [x] Check-in/Check-out API routes
-- [x] Automatic late fine calculation (flat fine per late day)
+- [x] Automatic late fine calculation (250 base + 250 per 30 mins)
 - [x] Working hours tracking
 - [x] Database models for all features
 
@@ -104,7 +104,8 @@ employee-management/
 - Check-in time: 09:00
 - Check-out time: 17:00
 - Required work hours: 8.0 hours
-- Late arrival fine (flat): ₹250
+- Late fine base: ₹250
+- Late fine per 30 mins: ₹250 (set to 0 for a flat late fine)
 - Missing checkout fine: off (₹250 when enabled)
 - Leave cost: ₹1000 (after 1 free paid leave)
 - Free paid leaves per month: 1
@@ -124,8 +125,9 @@ NODE_ENV="development"
 ## 📝 Business Logic
 
 ### Fine Calculation:
-- Flat fine (default ₹250) once late beyond the grace period, regardless of how late
-- Optional missing checkout fine (default ₹250) for a past day with a check-in but no check-out
+- Base fine: ₹250 for any lateness
+- Additional: ₹250 for every 30 minutes
+- Example: 35 minutes late = ₹250 + ₹250 = ₹500
 
 ### Leave Policy:
 - 1 paid leave free per month

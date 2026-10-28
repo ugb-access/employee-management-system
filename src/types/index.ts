@@ -54,6 +54,7 @@ export interface GlobalSettingsData {
   requiredWorkHours: number
   gracePeriodMinutes: number
   lateFineBase: number
+  lateFinePer30Min: number
   missingCheckoutFineEnabled: boolean
   missingCheckoutFine: number
   leaveCost: number
