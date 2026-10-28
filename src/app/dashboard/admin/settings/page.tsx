@@ -43,7 +43,9 @@ interface GlobalSettings {
   requiredWorkHours: number
   gracePeriodMinutes: number
   lateFineBase: number
-  lateFinePer30Min: number
+  missingCheckoutFineEnabled: boolean
+  missingCheckoutFine: number
+  missingCheckoutFineFrom: string | null
   leaveCost: number
   paidLeavesPerMonth: number
   warningLeaveCount: number
@@ -89,7 +91,8 @@ export default function AdminSettingsPage() {
     requiredWorkHours: 8,
     gracePeriodMinutes: 15,
     lateFineBase: 250,
-    lateFinePer30Min: 250,
+    missingCheckoutFineEnabled: false,
+    missingCheckoutFine: 250,
     leaveCost: 1000,
     paidLeavesPerMonth: 1,
     warningLeaveCount: 3,
@@ -140,7 +143,8 @@ export default function AdminSettingsPage() {
           requiredWorkHours: settingsData.settings.requiredWorkHours,
           gracePeriodMinutes: settingsData.settings.gracePeriodMinutes ?? 15,
           lateFineBase: settingsData.settings.lateFineBase,
-          lateFinePer30Min: settingsData.settings.lateFinePer30Min,
+          missingCheckoutFineEnabled: settingsData.settings.missingCheckoutFineEnabled ?? false,
+          missingCheckoutFine: settingsData.settings.missingCheckoutFine ?? 250,
           leaveCost: settingsData.settings.leaveCost,
           paidLeavesPerMonth: settingsData.settings.paidLeavesPerMonth,
           warningLeaveCount: settingsData.settings.warningLeaveCount,
@@ -392,7 +396,7 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="lateFineBase">Late Fine Base (Rs.)</Label>
+                    <Label htmlFor="lateFineBase">Late Arrival Fine (Rs.)</Label>
                     <Input
                       id="lateFineBase"
                       type="number"
@@ -401,33 +405,12 @@ export default function AdminSettingsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          lateFineBase: parseInt(e.target.value),
+                          lateFineBase: parseInt(e.target.value) || 0,
                         })
                       }
                     />
                     <p className="text-xs text-muted-foreground">
-                      Base fine charged for any lateness
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="lateFinePer30Min">
-                      Fine per 30 mins late (Rs.)
-                    </Label>
-                    <Input
-                      id="lateFinePer30Min"
-                      type="number"
-                      min="0"
-                      value={formData.lateFinePer30Min}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          lateFinePer30Min: parseInt(e.target.value),
-                        })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Additional fine for every 30 minutes late
+                      Flat fine charged once per late day, no matter how late
                     </p>
                   </div>
 
@@ -545,6 +528,46 @@ export default function AdminSettingsPage() {
                       }
                     />
                   </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="missingCheckoutFineEnabled">Missing Checkout Fine</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Fine employees who check in but never check out for the day
+                      </p>
+                    </div>
+                    <Switch
+                      id="missingCheckoutFineEnabled"
+                      checked={formData.missingCheckoutFineEnabled}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, missingCheckoutFineEnabled: checked })
+                      }
+                    />
+                  </div>
+                  {formData.missingCheckoutFineEnabled && (
+                    <div className="space-y-2 max-w-xs">
+                      <Label htmlFor="missingCheckoutFine">Missing Checkout Fine (Rs.)</Label>
+                      <Input
+                        id="missingCheckoutFine"
+                        type="number"
+                        min="0"
+                        value={formData.missingCheckoutFine}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            missingCheckoutFine: parseInt(e.target.value) || 0,
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {settings?.missingCheckoutFineEnabled && settings.missingCheckoutFineFrom
+                          ? `Flat fine per day with no checkout, applied from ${new Date(settings.missingCheckoutFineFrom).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' })}`
+                          : 'Flat fine per day with no checkout, applied from the day after you save'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

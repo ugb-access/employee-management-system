@@ -14,7 +14,8 @@ export interface TermsSettings {
   requiredWorkHours: number
   gracePeriodMinutes: number
   lateFineBase: number
-  lateFinePer30Min: number
+  missingCheckoutFineEnabled: boolean
+  missingCheckoutFine: number
   leaveCost: number
   paidLeavesPerMonth: number
   annualLeavesPerYear: number
@@ -86,14 +87,15 @@ export function generateDefaultTermsHtml(settings: TermsSettings): string {
 <p>A grace period of <strong>${settings.gracePeriodMinutes} minutes</strong> is allowed after the check-in time. Arriving within the grace period does <strong>not</strong> incur any late fine.</p>
 
 <h2>3. Late Arrival Fines</h2>
-<p>If you check in after the grace period, the following fine applies:</p>
-<ul>
-  <li><strong>Base late fine:</strong> Rs. ${settings.lateFineBase} once you are late beyond the grace period.</li>
-  <li><strong>Additional fine:</strong> Rs. ${settings.lateFinePer30Min} for every additional 30 minutes of lateness after the grace period.</li>
-</ul>
+<p>If you check in after the grace period, a flat late fine of <strong>Rs. ${settings.lateFineBase}</strong> applies for that day, regardless of how late you are.</p>
 ${
   settings.flexibleHoursEnabled
     ? `<p><strong>Flexible hours:</strong> If you complete your full required working hours (${settings.requiredWorkHours} hours) for the day, the late fine is waived.</p>`
+    : ''
+}
+${
+  settings.missingCheckoutFineEnabled
+    ? `<p><strong>Missing checkout:</strong> If you check in but do not check out by the end of the day, a fine of <strong>Rs. ${settings.missingCheckoutFine}</strong> applies for that day.</p>`
     : ''
 }
 

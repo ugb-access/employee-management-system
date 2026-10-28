@@ -78,7 +78,7 @@ export function getNowPKT(): Date {
 /**
  * Calculate late arrival fine
  * Grace period: no fine if within grace period minutes
- * Base fine + additional fine per 30 minutes after grace period
+ * Flat fine once late beyond the grace period, regardless of how late
  * All time comparisons done in PKT timezone
  */
 export function calculateLateFine(
@@ -116,13 +116,38 @@ export function calculateLateFine(
     return { lateMinutes, fineAmount: 0 }
   }
 
-  // Calculate fine based on minutes after grace period
-  const minutesAfterGrace = lateMinutes - gracePeriod
+  return { lateMinutes, fineAmount: settings.lateFineBase }
+}
 
-  // Base fine + additional fine for every 30 minutes after grace period
-  const fineAmount = settings.lateFineBase + Math.floor(minutesAfterGrace / 30) * settings.lateFinePer30Min
+/**
+ * Get tomorrow's date at midnight in PKT timezone (same format as getTodayPKT).
+ */
+export function getTomorrowPKT(): Date {
+  const tomorrow = getTodayPKT()
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+  return tomorrow
+}
 
-  return { lateMinutes, fineAmount }
+/**
+ * Calculate missing checkout fine for an attendance record.
+ * Applies only to past days where the employee checked in but never checked out
+ * (checkout is only possible on the same day), only when enabled in settings,
+ * and only for days on or after the date the fine took effect.
+ */
+export function calculateMissingCheckoutFine(
+  record: { date: Date; checkInTime: Date | null; checkOutTime: Date | null },
+  settings: {
+    missingCheckoutFineEnabled: boolean
+    missingCheckoutFine: number
+    missingCheckoutFineFrom: Date | null
+  },
+  today: Date = getTodayPKT()
+): number {
+  if (!settings.missingCheckoutFineEnabled || !settings.missingCheckoutFineFrom) return 0
+  if (!record.checkInTime || record.checkOutTime) return 0
+  if (record.date.getTime() < settings.missingCheckoutFineFrom.getTime()) return 0
+  if (record.date.getTime() >= today.getTime()) return 0
+  return settings.missingCheckoutFine
 }
 
 /**
