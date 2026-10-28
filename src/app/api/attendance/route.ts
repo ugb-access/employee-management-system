@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { calculateLateFine, calculateEarlyMinutes, calculateTotalHours, getTodayPKT } from '@/lib/calculations'
+import { calculateLateFine, calculateEarlyMinutes, calculateTotalHours, calculateMissingCheckoutFine, getTodayPKT } from '@/lib/calculations'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -91,7 +91,22 @@ export async function GET(req: Request) {
       },
     })
 
-    return NextResponse.json({ attendance })
+    // Missing checkout fine is derived on read so toggling the setting applies
+    // consistently and an admin adding a checkout later clears it automatically
+    const globalSettings = await prisma.globalSettings.findFirst()
+    const today = getTodayPKT()
+    const attendanceWithFines = attendance.map((record) => {
+      const missingCheckoutFine = globalSettings
+        ? calculateMissingCheckoutFine(record, globalSettings, today)
+        : 0
+      return {
+        ...record,
+        missingCheckoutFine,
+        fineAmount: record.fineAmount + missingCheckoutFine,
+      }
+    })
+
+    return NextResponse.json({ attendance: attendanceWithFines })
   } catch (error) {
     console.error('Get attendance error:', error)
     return NextResponse.json(

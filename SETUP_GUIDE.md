@@ -105,7 +105,8 @@ employee-management/
 - Check-out time: 17:00
 - Required work hours: 8.0 hours
 - Late fine base: ₹250
-- Late fine per 30 mins: ₹250
+- Late fine per 30 mins: ₹250 (set to 0 for a flat late fine)
+- Missing checkout fine: off (₹250 when enabled)
 - Leave cost: ₹1000 (after 1 free paid leave)
 - Free paid leaves per month: 1
 - Warning zone: 3 leaves

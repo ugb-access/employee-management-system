@@ -126,6 +126,37 @@ export function calculateLateFine(
 }
 
 /**
+ * Get tomorrow's date at midnight in PKT timezone (same format as getTodayPKT).
+ */
+export function getTomorrowPKT(): Date {
+  const tomorrow = getTodayPKT()
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+  return tomorrow
+}
+
+/**
+ * Calculate missing checkout fine for an attendance record.
+ * Applies only to past days where the employee checked in but never checked out
+ * (checkout is only possible on the same day), only when enabled in settings,
+ * and only for days on or after the date the fine took effect.
+ */
+export function calculateMissingCheckoutFine(
+  record: { date: Date; checkInTime: Date | null; checkOutTime: Date | null },
+  settings: {
+    missingCheckoutFineEnabled: boolean
+    missingCheckoutFine: number
+    missingCheckoutFineFrom: Date | null
+  },
+  today: Date = getTodayPKT()
+): number {
+  if (!settings.missingCheckoutFineEnabled || !settings.missingCheckoutFineFrom) return 0
+  if (!record.checkInTime || record.checkOutTime) return 0
+  if (record.date.getTime() < settings.missingCheckoutFineFrom.getTime()) return 0
+  if (record.date.getTime() >= today.getTime()) return 0
+  return settings.missingCheckoutFine
+}
+
+/**
  * Calculate early checkout minutes
  * All time comparisons done in PKT timezone
  */

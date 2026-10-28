@@ -47,6 +47,9 @@ model GlobalSettings {
   gracePeriodMinutes Int       @default(15)
   lateFineBase       Int       @default(250)
   lateFinePer30Min   Int       @default(250)
+  missingCheckoutFineEnabled Boolean @default(false)
+  missingCheckoutFine        Int     @default(250)
+  missingCheckoutFineFrom    DateTime? @db.Date
   leaveCost          Int       @default(1000)
   paidLeavesPerMonth Int       @default(1)
   warningLeaveCount  Int       @default(3)

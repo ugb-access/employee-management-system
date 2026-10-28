@@ -29,6 +29,8 @@ interface GlobalSettings {
   gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
+  missingCheckoutFineEnabled: boolean
+  missingCheckoutFine: number
   leaveCost: number
   warningLeaveCount: number
   dangerLeaveCount: number
@@ -317,7 +319,7 @@ export default function EmployeeDashboardPage() {
                       </p>
                     )}
                     <div className={`text-xs rounded px-2 py-1.5 ${isWithinGrace ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-100/50 dark:bg-yellow-900/30' : 'text-red-600 dark:text-red-400 bg-red-100/50 dark:bg-red-900/30'}`}>
-                      <span className="font-medium">Fine Policy:</span> {gracePeriod} min grace | Rs.{globalSettings.lateFineBase} base + Rs.{globalSettings.lateFinePer30Min}/30 min after grace
+                      <span className="font-medium">Fine Policy:</span> {gracePeriod} min grace | Rs.{globalSettings.lateFineBase} base{globalSettings.lateFinePer30Min > 0 && ` + Rs.${globalSettings.lateFinePer30Min}/30 min`} after grace
                     </div>
                   </div>
                 </div>

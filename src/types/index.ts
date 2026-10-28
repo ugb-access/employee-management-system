@@ -55,6 +55,8 @@ export interface GlobalSettingsData {
   gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
+  missingCheckoutFineEnabled: boolean
+  missingCheckoutFine: number
   leaveCost: number
   paidLeavesPerMonth: number
   warningLeaveCount: number

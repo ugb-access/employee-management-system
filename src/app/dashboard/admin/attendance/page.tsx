@@ -69,6 +69,7 @@ interface Attendance {
   earlyMinutes: number
   totalHours: number | null
   fineAmount: number
+  missingCheckoutFine?: number
   isAutoLeave: boolean
   isModifiedByAdmin: boolean
   user: User
@@ -651,7 +652,12 @@ export default function AdminAttendancePage() {
                             <TableCell>
                               {row.kind === 'attendance'
                                 ? row.data.fineAmount > 0
-                                  ? <span className="text-red-500">Rs.{row.data.fineAmount}</span>
+                                  ? <span className="text-red-500">
+                                      Rs.{row.data.fineAmount}
+                                      {(row.data.missingCheckoutFine ?? 0) > 0 && (
+                                        <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                                      )}
+                                    </span>
                                   : 'Rs.0'
                                 : '—'}
                             </TableCell>

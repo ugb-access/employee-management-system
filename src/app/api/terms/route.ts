@@ -11,6 +11,8 @@ function toTermsSettings(settings: {
   gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
+  missingCheckoutFineEnabled: boolean
+  missingCheckoutFine: number
   leaveCost: number
   paidLeavesPerMonth: number
   annualLeavesPerYear: number
@@ -26,6 +28,8 @@ function toTermsSettings(settings: {
     gracePeriodMinutes: settings.gracePeriodMinutes,
     lateFineBase: settings.lateFineBase,
     lateFinePer30Min: settings.lateFinePer30Min,
+    missingCheckoutFineEnabled: settings.missingCheckoutFineEnabled,
+    missingCheckoutFine: settings.missingCheckoutFine,
     leaveCost: settings.leaveCost,
     paidLeavesPerMonth: settings.paidLeavesPerMonth,
     annualLeavesPerYear: settings.annualLeavesPerYear,
@@ -45,6 +49,8 @@ const DEFAULT_TERMS_SETTINGS: TermsSettings = {
   gracePeriodMinutes: 15,
   lateFineBase: 250,
   lateFinePer30Min: 250,
+  missingCheckoutFineEnabled: false,
+  missingCheckoutFine: 250,
   leaveCost: 1000,
   paidLeavesPerMonth: 1,
   annualLeavesPerYear: 12,

@@ -67,6 +67,8 @@ export const globalSettingsSchema = z.object({
   requiredWorkHours: z.number().min(1).max(24),
   lateFineBase: z.number().min(0),
   lateFinePer30Min: z.number().min(0),
+  missingCheckoutFineEnabled: z.boolean(),
+  missingCheckoutFine: z.number().min(0),
   leaveCost: z.number().min(0),
   paidLeavesPerMonth: z.number().min(0).max(31),
   warningLeaveCount: z.number().min(0).max(31),

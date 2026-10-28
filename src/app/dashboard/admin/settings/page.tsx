@@ -44,6 +44,9 @@ interface GlobalSettings {
   gracePeriodMinutes: number
   lateFineBase: number
   lateFinePer30Min: number
+  missingCheckoutFineEnabled: boolean
+  missingCheckoutFine: number
+  missingCheckoutFineFrom: string | null
   leaveCost: number
   paidLeavesPerMonth: number
   warningLeaveCount: number
@@ -90,6 +93,8 @@ export default function AdminSettingsPage() {
     gracePeriodMinutes: 15,
     lateFineBase: 250,
     lateFinePer30Min: 250,
+    missingCheckoutFineEnabled: false,
+    missingCheckoutFine: 250,
     leaveCost: 1000,
     paidLeavesPerMonth: 1,
     warningLeaveCount: 3,
@@ -141,6 +146,8 @@ export default function AdminSettingsPage() {
           gracePeriodMinutes: settingsData.settings.gracePeriodMinutes ?? 15,
           lateFineBase: settingsData.settings.lateFineBase,
           lateFinePer30Min: settingsData.settings.lateFinePer30Min,
+          missingCheckoutFineEnabled: settingsData.settings.missingCheckoutFineEnabled ?? false,
+          missingCheckoutFine: settingsData.settings.missingCheckoutFine ?? 250,
           leaveCost: settingsData.settings.leaveCost,
           paidLeavesPerMonth: settingsData.settings.paidLeavesPerMonth,
           warningLeaveCount: settingsData.settings.warningLeaveCount,
@@ -545,6 +552,46 @@ export default function AdminSettingsPage() {
                       }
                     />
                   </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="missingCheckoutFineEnabled">Missing Checkout Fine</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Fine employees who check in but never check out for the day
+                      </p>
+                    </div>
+                    <Switch
+                      id="missingCheckoutFineEnabled"
+                      checked={formData.missingCheckoutFineEnabled}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, missingCheckoutFineEnabled: checked })
+                      }
+                    />
+                  </div>
+                  {formData.missingCheckoutFineEnabled && (
+                    <div className="space-y-2 max-w-xs">
+                      <Label htmlFor="missingCheckoutFine">Missing Checkout Fine (Rs.)</Label>
+                      <Input
+                        id="missingCheckoutFine"
+                        type="number"
+                        min="0"
+                        value={formData.missingCheckoutFine}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            missingCheckoutFine: parseInt(e.target.value) || 0,
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {settings?.missingCheckoutFineEnabled && settings.missingCheckoutFineFrom
+                          ? `Flat fine per day with no checkout, applied from ${new Date(settings.missingCheckoutFineFrom).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' })}`
+                          : 'Flat fine per day with no checkout, applied from the day after you save'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

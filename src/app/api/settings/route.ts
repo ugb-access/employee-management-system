@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { globalSettingsSchema } from '@/lib/validations'
+import { getTomorrowPKT } from '@/lib/calculations'
 import { NextResponse } from 'next/server'
 
 // GET /api/settings - Get global settings
@@ -23,6 +24,8 @@ export async function GET() {
           requiredWorkHours: 8.0,
           lateFineBase: 250,
           lateFinePer30Min: 250,
+          missingCheckoutFineEnabled: false,
+          missingCheckoutFine: 250,
           leaveCost: 1000,
           paidLeavesPerMonth: 1,
           warningLeaveCount: 3,
@@ -67,6 +70,9 @@ export async function PUT(req: Request) {
           requiredWorkHours: validatedData.requiredWorkHours,
           lateFineBase: validatedData.lateFineBase,
           lateFinePer30Min: validatedData.lateFinePer30Min,
+          missingCheckoutFineEnabled: validatedData.missingCheckoutFineEnabled,
+          missingCheckoutFine: validatedData.missingCheckoutFine,
+          missingCheckoutFineFrom: validatedData.missingCheckoutFineEnabled ? getTomorrowPKT() : null,
           leaveCost: validatedData.leaveCost,
           paidLeavesPerMonth: validatedData.paidLeavesPerMonth,
           warningLeaveCount: validatedData.warningLeaveCount,
@@ -77,6 +83,15 @@ export async function PUT(req: Request) {
         },
       })
     } else {
+      // Missing checkout fine only applies to days after it is switched on,
+      // so turning it on never fines past days retroactively
+      let missingCheckoutFineFrom = settings.missingCheckoutFineFrom
+      if (!validatedData.missingCheckoutFineEnabled) {
+        missingCheckoutFineFrom = null
+      } else if (!settings.missingCheckoutFineEnabled || !missingCheckoutFineFrom) {
+        missingCheckoutFineFrom = getTomorrowPKT()
+      }
+
       // Update existing settings
       settings = await prisma.globalSettings.update({
         where: { id: settings.id },
@@ -86,6 +101,9 @@ export async function PUT(req: Request) {
           requiredWorkHours: validatedData.requiredWorkHours,
           lateFineBase: validatedData.lateFineBase,
           lateFinePer30Min: validatedData.lateFinePer30Min,
+          missingCheckoutFineEnabled: validatedData.missingCheckoutFineEnabled,
+          missingCheckoutFine: validatedData.missingCheckoutFine,
+          missingCheckoutFineFrom,
           leaveCost: validatedData.leaveCost,
           paidLeavesPerMonth: validatedData.paidLeavesPerMonth,
           warningLeaveCount: validatedData.warningLeaveCount,
