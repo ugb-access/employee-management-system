@@ -19,8 +19,11 @@ when an employee checks in but never checks out for the day.
 ALTER TABLE "GlobalSettings" ADD COLUMN IF NOT EXISTS "missingCheckoutFineEnabled" BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE "GlobalSettings" ADD COLUMN IF NOT EXISTS "missingCheckoutFine" INTEGER NOT NULL DEFAULT 250;
 ALTER TABLE "GlobalSettings" ADD COLUMN IF NOT EXISTS "missingCheckoutFineFrom" DATE;
-ALTER TABLE "GlobalSettings" DROP COLUMN IF EXISTS "lateFinePer30Min";
 ```
+
+The old `lateFinePer30Min` column is no longer used but is kept in the schema
+so `prisma db push` (which runs during the Vercel build) doesn't try to drop it
+while older deployments still read it. It can be removed in a later change.
 
 The missing checkout fine is off by default; enable it and set the amount
 under Admin → Settings. When it is switched on, it applies from the next day

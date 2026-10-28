@@ -46,6 +46,9 @@ model GlobalSettings {
   requiredWorkHours  Float     @default(8.0)
   gracePeriodMinutes Int       @default(15)
   lateFineBase       Int       @default(250)
+  // Deprecated: no longer used (late fine is flat). Kept so `prisma db push`
+  // doesn't drop it while older deployments still read it.
+  lateFinePer30Min   Int       @default(250)
   missingCheckoutFineEnabled Boolean @default(false)
   missingCheckoutFine        Int     @default(250)
   missingCheckoutFineFrom    DateTime? @db.Date
