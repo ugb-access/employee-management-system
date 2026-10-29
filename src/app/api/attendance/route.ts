@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { calculateLateFine, calculateEarlyMinutes, calculateTotalHours, calculateMissingCheckoutFine, getTodayPKT } from '@/lib/calculations'
+import { LATE_CHECKIN_REASONS, EARLY_CHECKOUT_REASONS, validateReason } from '@/lib/reasons'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
@@ -171,18 +172,24 @@ export async function POST(req: Request) {
     const checkInTime = new Date(attendanceDate)
     checkInTime.setUTCHours(inHours - 5, inMinutes, 0, 0)
 
-    // Calculate late fine - use local time for comparison
-    const compareTime = new Date(attendanceDate)
-    compareTime.setHours(inHours, inMinutes, 0, 0)
+    // Calculate late fine from the stored (UTC) check-in time; the helper
+    // compares in PKT, so this is independent of the server's timezone
     const settingsData = {
       ...globalSettings,
       workingDays: globalSettings.workingDays.split(',').map(Number),
     }
     const { lateMinutes, fineAmount } = calculateLateFine(
-      compareTime,
+      checkInTime,
       settings.checkInTime,
       settingsData
     )
+
+    if (lateMinutes > 0) {
+      const reasonError = validateReason(validatedData.checkInReason, LATE_CHECKIN_REASONS)
+      if (reasonError) {
+        return NextResponse.json({ error: `Check-in reason: ${reasonError}` }, { status: 400 })
+      }
+    }
 
     // Prepare attendance data
     const attendanceData: {
@@ -217,11 +224,16 @@ export async function POST(req: Request) {
       attendanceData.checkOutTime = checkOutTime
       attendanceData.checkOutReason = validatedData.checkOutReason
 
-      // Calculate early minutes - use local time for comparison
-      const compareTime = new Date(attendanceDate)
-      compareTime.setHours(outHours, outMinutes, 0, 0)
-      const earlyMinutes = calculateEarlyMinutes(compareTime, settings.checkOutTime)
+      // Calculate early minutes from the stored (UTC) check-out time
+      const earlyMinutes = calculateEarlyMinutes(checkOutTime, settings.checkOutTime)
       attendanceData.earlyMinutes = earlyMinutes
+
+      if (earlyMinutes > 0) {
+        const reasonError = validateReason(validatedData.checkOutReason, EARLY_CHECKOUT_REASONS)
+        if (reasonError) {
+          return NextResponse.json({ error: `Check-out reason: ${reasonError}` }, { status: 400 })
+        }
+      }
 
       // Calculate total hours
       const totalHours = calculateTotalHours(checkInTime, checkOutTime)

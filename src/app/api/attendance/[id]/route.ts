@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { editAttendanceSchema } from '@/lib/validations'
 import { calculateLateFine, calculateTotalHours } from '@/lib/calculations'
+import { LATE_CHECKIN_REASONS, EARLY_CHECKOUT_REASONS, FINE_WAIVER_REASONS, validateReason } from '@/lib/reasons'
 import { NextResponse } from 'next/server'
 
 // GET /api/attendance/[id] - Get single attendance record
@@ -161,6 +162,22 @@ export async function PUT(
       }
     }
 
+    // Late check-in and early checkout need a reason from the list
+    if ((updateData.lateMinutes ?? 0) > 0) {
+      const reasonError = validateReason(validatedData.checkInReason, LATE_CHECKIN_REASONS)
+      if (reasonError) {
+        return NextResponse.json({ error: `Check-in reason: ${reasonError}` }, { status: 400 })
+      }
+      updateData.checkInReason = validatedData.checkInReason
+    }
+    if ((updateData.earlyMinutes ?? 0) > 0) {
+      const reasonError = validateReason(validatedData.checkOutReason, EARLY_CHECKOUT_REASONS)
+      if (reasonError) {
+        return NextResponse.json({ error: `Check-out reason: ${reasonError}` }, { status: 400 })
+      }
+      updateData.checkOutReason = validatedData.checkOutReason
+    }
+
     // Recalculate total hours if both times are available
     const finalCheckIn = updateData.checkInTime || attendance.checkInTime
     const finalCheckOut = updateData.checkOutTime || attendance.checkOutTime
@@ -183,9 +200,10 @@ export async function PUT(
     const isFineWaived = validatedData.isFineWaived ?? attendance.isFineWaived
     if (validatedData.isFineWaived !== undefined) {
       const waiveReason = validatedData.fineWaiveReason?.trim() || null
-      if (isFineWaived && !waiveReason) {
+      const waiveError = isFineWaived && validateReason(waiveReason, FINE_WAIVER_REASONS)
+      if (waiveError) {
         return NextResponse.json(
-          { error: 'A reason is required to waive the fine' },
+          { error: `Waiver reason: ${waiveError}` },
           { status: 400 }
         )
       }

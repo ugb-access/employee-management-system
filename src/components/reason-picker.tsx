@@ -9,7 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { MIN_OTHER_REASON_LENGTH, OTHER_REASON } from '@/lib/reasons'
+import {
+  MIN_OTHER_REASON_LENGTH,
+  MIN_OTHER_REASON_WORDS,
+  OTHER_REASON,
+  countWords,
+} from '@/lib/reasons'
 
 export interface ReasonValue {
   choice: string
@@ -23,17 +28,21 @@ interface ReasonPickerProps {
   options: readonly string[]
   value: ReasonValue
   onChange: (value: ReasonValue) => void
+  label?: string
 }
 
-export function ReasonPicker({ id, options, value, onChange }: ReasonPickerProps) {
+export function ReasonPicker({ id, options, value, onChange, label = 'Reason' }: ReasonPickerProps) {
   const isOther = value.choice === OTHER_REASON
   const detailsLength = value.details.trim().length
+  const detailsWords = countWords(value.details)
+  const otherIsLongEnough =
+    detailsLength >= MIN_OTHER_REASON_LENGTH && detailsWords >= MIN_OTHER_REASON_WORDS
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor={id}>
-          Reason <span className="text-red-500">*</span>
+          {label} <span className="text-red-500">*</span>
         </Label>
         <Select
           value={value.choice}
@@ -69,18 +78,14 @@ export function ReasonPicker({ id, options, value, onChange }: ReasonPickerProps
             placeholder={
               isOther
                 ? 'Describe what happened in detail'
-                : 'Add any details for your manager'
+                : 'Add any details'
             }
             value={value.details}
             onChange={(e) => onChange({ ...value, details: e.target.value })}
           />
           {isOther && (
-            <p
-              className={`text-xs ${
-                detailsLength >= MIN_OTHER_REASON_LENGTH ? 'text-green-600' : 'text-muted-foreground'
-              }`}
-            >
-              {detailsLength}/{MIN_OTHER_REASON_LENGTH} characters minimum
+            <p className={`text-xs ${otherIsLongEnough ? 'text-green-600' : 'text-muted-foreground'}`}>
+              {detailsWords}/{MIN_OTHER_REASON_WORDS} words · {detailsLength}/{MIN_OTHER_REASON_LENGTH} characters minimum
             </p>
           )}
         </div>
