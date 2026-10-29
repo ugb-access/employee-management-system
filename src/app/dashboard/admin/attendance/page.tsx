@@ -40,6 +40,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Pencil, Loader2, Download, Plus, ChevronLeft, ChevronRight, UserX } from 'lucide-react'
 import { exportToCSV, formatDateForExport, formatTimeForExport } from '@/lib/export'
 import { formatLocalDate, formatTime, formatTimeForInput, computeAbsentDays } from '@/lib/calculations'
@@ -70,6 +71,8 @@ interface Attendance {
   totalHours: number | null
   fineAmount: number
   missingCheckoutFine?: number
+  isFineWaived: boolean
+  fineWaiveReason: string | null
   isAutoLeave: boolean
   isModifiedByAdmin: boolean
   user: User
@@ -124,6 +127,8 @@ export default function AdminAttendancePage() {
     checkOutTime: '',
     checkInReason: '',
     checkOutReason: '',
+    isFineWaived: false,
+    fineWaiveReason: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -294,6 +299,8 @@ export default function AdminAttendancePage() {
       checkOutTime: formatTimeForInput(record.checkOutTime),
       checkInReason: record.checkInReason || '',
       checkOutReason: record.checkOutReason || '',
+      isFineWaived: record.isFineWaived,
+      fineWaiveReason: record.fineWaiveReason || '',
     })
     setEditDialogOpen(true)
   }
@@ -316,6 +323,10 @@ export default function AdminAttendancePage() {
       toast.error('Check-out reason is required for early check-out')
       return
     }
+    if (editForm.isFineWaived && !editForm.fineWaiveReason.trim()) {
+      toast.error('A reason is required to waive the fine')
+      return
+    }
     setSaving(true)
     try {
       const response = await fetch(`/api/attendance/${editingAttendance.id}`, {
@@ -326,6 +337,8 @@ export default function AdminAttendancePage() {
           checkOutTime: editForm.checkOutTime || undefined,
           checkInReason: editForm.checkInReason || undefined,
           checkOutReason: editForm.checkOutReason || undefined,
+          isFineWaived: editForm.isFineWaived,
+          fineWaiveReason: editForm.isFineWaived ? editForm.fineWaiveReason : undefined,
         }),
       })
       const data = await response.json()
@@ -468,14 +481,14 @@ export default function AdminAttendancePage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Attendance Management</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">Attendance Management</h1>
               <p className="text-muted-foreground">
                 View and manage employee attendance records
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button onClick={() => setManualDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Mark Attendance
@@ -520,7 +533,7 @@ export default function AdminAttendancePage() {
               <span className="h-4 w-4 rounded-full bg-green-500 inline-block" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{totalPresent}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-green-600">{totalPresent}</div>
               <p className="text-xs text-muted-foreground mt-1">days checked in</p>
             </CardContent>
           </Card>
@@ -530,7 +543,7 @@ export default function AdminAttendancePage() {
               <UserX className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-500">{totalAbsent}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-500">{totalAbsent}</div>
               <p className="text-xs text-muted-foreground mt-1">days not present</p>
             </CardContent>
           </Card>
@@ -540,7 +553,7 @@ export default function AdminAttendancePage() {
               <span className="h-4 w-4 rounded-full bg-blue-500 inline-block" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{totalOnLeave}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-blue-600">{totalOnLeave}</div>
               <p className="text-xs text-muted-foreground mt-1">approved leaves</p>
             </CardContent>
           </Card>
@@ -550,7 +563,7 @@ export default function AdminAttendancePage() {
               <span className="h-4 w-4 rounded-full bg-orange-500 inline-block" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-500">{totalLate}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-orange-500">{totalLate}</div>
               <p className="text-xs text-muted-foreground mt-1">late check-ins</p>
             </CardContent>
           </Card>
@@ -651,14 +664,21 @@ export default function AdminAttendancePage() {
                             </TableCell>
                             <TableCell>
                               {row.kind === 'attendance'
-                                ? row.data.fineAmount > 0
-                                  ? <span className="text-red-500">
-                                      Rs.{row.data.fineAmount}
-                                      {(row.data.missingCheckoutFine ?? 0) > 0 && (
-                                        <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                                ? row.data.isFineWaived
+                                  ? <span title={row.data.fineWaiveReason || undefined}>
+                                      <Badge variant="secondary" className="text-xs">Waived</Badge>
+                                      {row.data.fineWaiveReason && (
+                                        <span className="block text-xs text-muted-foreground truncate max-w-32">{row.data.fineWaiveReason}</span>
                                       )}
                                     </span>
-                                  : 'Rs.0'
+                                  : row.data.fineAmount > 0
+                                    ? <span className="text-red-500">
+                                        Rs.{row.data.fineAmount}
+                                        {(row.data.missingCheckoutFine ?? 0) > 0 && (
+                                          <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                                        )}
+                                      </span>
+                                    : 'Rs.0'
                                 : '—'}
                             </TableCell>
                             <TableCell>
@@ -698,7 +718,7 @@ export default function AdminAttendancePage() {
                   </Table>
                 </div>
                 {filteredTimeline.length > PAGE_SIZE && (
-                  <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t">
                     <p className="text-sm text-muted-foreground">
                       Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filteredTimeline.length)} of {filteredTimeline.length} records
                     </p>
@@ -807,6 +827,36 @@ export default function AdminAttendancePage() {
                   <p className="text-xs text-muted-foreground">
                     Check-out time is before {editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'}. Reason is required.
                   </p>
+                )}
+              </div>
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="isFineWaived">Waive fine for this day</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {editingAttendance && editingAttendance.fineAmount > 0 && !editingAttendance.isFineWaived
+                        ? `Removes the Rs.${editingAttendance.fineAmount} fine for this day`
+                        : 'No late or missing checkout fine will be charged for this day'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="isFineWaived"
+                    checked={editForm.isFineWaived}
+                    onCheckedChange={(checked) => setEditForm({ ...editForm, isFineWaived: checked })}
+                  />
+                </div>
+                {editForm.isFineWaived && (
+                  <div className="space-y-2">
+                    <Label htmlFor="fineWaiveReason">
+                      Waiver Reason <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="fineWaiveReason"
+                      placeholder="e.g. Approved delay, traffic accident, official errand"
+                      value={editForm.fineWaiveReason}
+                      onChange={(e) => setEditForm({ ...editForm, fineWaiveReason: e.target.value })}
+                    />
+                  </div>
                 )}
               </div>
             </div>

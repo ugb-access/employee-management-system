@@ -96,7 +96,7 @@ export async function GET(req: Request) {
     const globalSettings = await prisma.globalSettings.findFirst()
     const today = getTodayPKT()
     const attendanceWithFines = attendance.map((record) => {
-      const missingCheckoutFine = globalSettings
+      const missingCheckoutFine = globalSettings && !record.isFineWaived
         ? calculateMissingCheckoutFine(record, globalSettings, today)
         : 0
       return {

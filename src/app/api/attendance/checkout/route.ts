@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { calculateEarlyMinutes, calculateTotalHours, isWorkHoursIncomplete, getTodayPKT, getNowPKT } from '@/lib/calculations'
 import { checkOutSchema } from '@/lib/validations'
+import { EARLY_CHECKOUT_REASONS, validateReason } from '@/lib/reasons'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -68,12 +69,15 @@ export async function POST(req: Request) {
       settings.checkOutTime
     )
 
-    // Require reason for early checkout
-    if (earlyMinutes > 0 && !reason) {
-      return NextResponse.json(
-        { error: 'Reason is required for early checkout', earlyMinutes, requiresReason: true },
-        { status: 400 }
-      )
+    // Require a valid reason for early checkout
+    if (earlyMinutes > 0) {
+      const reasonError = validateReason(reason, EARLY_CHECKOUT_REASONS)
+      if (reasonError) {
+        return NextResponse.json(
+          { error: `Early checkout: ${reasonError}`, earlyMinutes, requiresReason: true },
+          { status: 400 }
+        )
+      }
     }
 
     // Calculate total hours

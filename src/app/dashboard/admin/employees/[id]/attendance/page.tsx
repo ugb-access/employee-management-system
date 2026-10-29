@@ -72,6 +72,8 @@ interface Attendance {
   totalHours: number | null
   fineAmount: number
   missingCheckoutFine?: number
+  isFineWaived?: boolean
+  fineWaiveReason?: string | null
   isAutoLeave: boolean
   isModifiedByAdmin: boolean
 }
@@ -416,7 +418,7 @@ export default function EmployeeAttendancePage() {
             </Link>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold">{employee.name}</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold">{employee.name}</h1>
                 <Badge variant={employee.isActive ? 'default' : 'secondary'}>
                   {employee.isActive ? 'Active' : 'Inactive'}
                 </Badge>
@@ -682,14 +684,21 @@ export default function EmployeeAttendancePage() {
                               </TableCell>
                               <TableCell>
                                 {row.kind === 'attendance'
-                                  ? row.data.fineAmount > 0
-                                    ? <span className="text-red-500">
-                                        Rs.{row.data.fineAmount}
-                                        {(row.data.missingCheckoutFine ?? 0) > 0 && (
-                                          <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                                  ? row.data.isFineWaived
+                                    ? <span title={row.data.fineWaiveReason || undefined}>
+                                        <Badge variant="secondary" className="text-xs">Waived</Badge>
+                                        {row.data.fineWaiveReason && (
+                                          <span className="block text-xs text-muted-foreground truncate max-w-32">{row.data.fineWaiveReason}</span>
                                         )}
                                       </span>
-                                    : 'Rs.0'
+                                    : row.data.fineAmount > 0
+                                      ? <span className="text-red-500">
+                                          Rs.{row.data.fineAmount}
+                                          {(row.data.missingCheckoutFine ?? 0) > 0 && (
+                                            <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                                          )}
+                                        </span>
+                                      : 'Rs.0'
                                   : '—'}
                               </TableCell>
                               <TableCell>{getStatusBadge(row)}</TableCell>
@@ -699,7 +708,7 @@ export default function EmployeeAttendancePage() {
                       </Table>
                     </div>
                     {timeline.length > PAGE_SIZE && (
-                      <div className="flex items-center justify-between pt-4 border-t">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t">
                         <p className="text-sm text-muted-foreground">
                           Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, timeline.length)} of {timeline.length} records
                         </p>

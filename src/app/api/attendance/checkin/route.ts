@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { calculateLateFine, isWorkingDay, getTodayPKT, getNowPKT } from '@/lib/calculations'
 import { checkInSchema } from '@/lib/validations'
+import { LATE_CHECKIN_REASONS, validateReason } from '@/lib/reasons'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -113,12 +114,15 @@ export async function POST(req: Request) {
     //   )
     // }
 
-    // Require reason for late check-in
-    if (lateMinutes > 0 && !reason) {
-      return NextResponse.json(
-        { error: 'Reason is required for late check-in' },
-        { status: 400 }
-      )
+    // Require a valid reason for late check-in
+    if (lateMinutes > 0) {
+      const reasonError = validateReason(reason, LATE_CHECKIN_REASONS)
+      if (reasonError) {
+        return NextResponse.json(
+          { error: `Late check-in: ${reasonError}` },
+          { status: 400 }
+        )
+      }
     }
 
     // Create attendance record

@@ -7,8 +7,6 @@ import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +19,8 @@ import { Clock, LogOut, LogIn, Calendar, Loader2, AlertTriangle, CheckCircle2 } 
 import { formatTime, calculateLateFine } from '@/lib/calculations'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
+import { ReasonPicker, EMPTY_REASON, type ReasonValue } from '@/components/reason-picker'
+import { LATE_CHECKIN_REASONS, EARLY_CHECKOUT_REASONS, buildReason, validateReason } from '@/lib/reasons'
 
 interface GlobalSettings {
   checkInTime: string
@@ -58,12 +58,12 @@ export default function EmployeeDashboardPage() {
 
   // Dialogs
   const [lateCheckInDialog, setLateCheckInDialog] = useState(false)
-  const [lateReason, setLateReason] = useState('')
+  const [lateReason, setLateReason] = useState<ReasonValue>(EMPTY_REASON)
   const [potentialFine, setPotentialFine] = useState(0)
   const [lateMinutesState, setLateMinutesState] = useState(0)
 
   const [earlyCheckoutDialog, setEarlyCheckoutDialog] = useState(false)
-  const [earlyReason, setEarlyReason] = useState('')
+  const [earlyReason, setEarlyReason] = useState<ReasonValue>(EMPTY_REASON)
   const [earlyMinutesState, setEarlyMinutesState] = useState(0)
 
   // Current time
@@ -178,7 +178,7 @@ export default function EmployeeDashboardPage() {
       const { lateMinutes: mins, fineAmount } = calculateLateFine(new Date(), getCheckInTime(), settingsData)
       setLateMinutesState(mins)
       setPotentialFine(fineAmount)
-      setLateReason('')
+      setLateReason(EMPTY_REASON)
       setLateCheckInDialog(true)
     } else {
       performCheckIn()
@@ -210,7 +210,7 @@ export default function EmployeeDashboardPage() {
       toast.error('Failed to check in')
     } finally {
       setCheckInLoading(false)
-      setLateReason('')
+      setLateReason(EMPTY_REASON)
     }
   }
 
@@ -235,7 +235,7 @@ export default function EmployeeDashboardPage() {
         // If early checkout reason is required, show the dialog
         if (data.requiresReason && data.earlyMinutes) {
           setEarlyMinutesState(data.earlyMinutes)
-          setEarlyReason('')
+          setEarlyReason(EMPTY_REASON)
           setEarlyCheckoutDialog(true)
           setCheckOutLoading(false)
           return
@@ -254,7 +254,7 @@ export default function EmployeeDashboardPage() {
       toast.error('Failed to check out')
     } finally {
       setCheckOutLoading(false)
-      setEarlyReason('')
+      setEarlyReason(EMPTY_REASON)
     }
   }
 
@@ -272,13 +272,13 @@ export default function EmployeeDashboardPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground">Welcome, {session.user?.name}</p>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold tabular-nums">
+            <div className="text-2xl sm:text-3xl font-bold tabular-nums">
               {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
             </div>
             <div className="text-sm text-muted-foreground">
@@ -331,7 +331,7 @@ export default function EmployeeDashboardPage() {
         {/* Status Card */}
         <Card>
           <CardContent className="py-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-full ${
                   isDayComplete ? 'bg-green-100 dark:bg-green-900' :
@@ -353,7 +353,7 @@ export default function EmployeeDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Button
                   size="lg"
                   disabled={!canCheckIn || checkInLoading}
@@ -494,22 +494,22 @@ export default function EmployeeDashboardPage() {
               You are {lateMinutesState} minutes late. A fine of Rs.{potentialFine} will be applied.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="lateReason">Reason <span className="text-red-500">*</span></Label>
-              <Input
-                id="lateReason"
-                placeholder="e.g., Traffic, Doctor appointment..."
-                value={lateReason}
-                onChange={(e) => setLateReason(e.target.value)}
-              />
-            </div>
+          <div className="py-4">
+            <ReasonPicker
+              id="lateReason"
+              options={LATE_CHECKIN_REASONS}
+              value={lateReason}
+              onChange={setLateReason}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLateCheckInDialog(false)}>Cancel</Button>
             <Button
-              onClick={() => performCheckIn(lateReason.trim() || undefined)}
-              disabled={checkInLoading || lateReason.trim().length < 5}
+              onClick={() => performCheckIn(buildReason(lateReason.choice, lateReason.details))}
+              disabled={
+                checkInLoading ||
+                validateReason(buildReason(lateReason.choice, lateReason.details), LATE_CHECKIN_REASONS) !== null
+              }
             >
               {checkInLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Check In
@@ -530,22 +530,22 @@ export default function EmployeeDashboardPage() {
               You are leaving {earlyMinutesState} minutes early.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="earlyReason">Reason <span className="text-red-500">*</span></Label>
-              <Input
-                id="earlyReason"
-                placeholder="e.g., Doctor appointment, Family emergency..."
-                value={earlyReason}
-                onChange={(e) => setEarlyReason(e.target.value)}
-              />
-            </div>
+          <div className="py-4">
+            <ReasonPicker
+              id="earlyReason"
+              options={EARLY_CHECKOUT_REASONS}
+              value={earlyReason}
+              onChange={setEarlyReason}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEarlyCheckoutDialog(false)}>Cancel</Button>
             <Button
-              onClick={() => performCheckOut(earlyReason.trim())}
-              disabled={checkOutLoading || earlyReason.trim().length < 5}
+              onClick={() => performCheckOut(buildReason(earlyReason.choice, earlyReason.details))}
+              disabled={
+                checkOutLoading ||
+                validateReason(buildReason(earlyReason.choice, earlyReason.details), EARLY_CHECKOUT_REASONS) !== null
+              }
             >
               {checkOutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Check Out

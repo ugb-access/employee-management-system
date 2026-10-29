@@ -109,6 +109,8 @@ export async function PUT(
       earlyMinutes?: number
       totalHours?: number
       fineAmount?: number
+      isFineWaived?: boolean
+      fineWaiveReason?: string | null
       isModifiedByAdmin?: boolean
     } = {
       isModifiedByAdmin: true,
@@ -174,6 +176,34 @@ export async function PUT(
     const currentFine = updateData.fineAmount ?? attendance.fineAmount
 
     if (effectiveFlexible && finalHours >= requiredHours && currentFine > 0) {
+      updateData.fineAmount = 0
+    }
+
+    // Fine waiver: admin can waive the fine for this day with a reason
+    const isFineWaived = validatedData.isFineWaived ?? attendance.isFineWaived
+    if (validatedData.isFineWaived !== undefined) {
+      const waiveReason = validatedData.fineWaiveReason?.trim() || null
+      if (isFineWaived && !waiveReason) {
+        return NextResponse.json(
+          { error: 'A reason is required to waive the fine' },
+          { status: 400 }
+        )
+      }
+      updateData.isFineWaived = isFineWaived
+      updateData.fineWaiveReason = isFineWaived ? waiveReason : null
+
+      // Lifting a waiver restores the late fine for the existing check-in
+      if (!isFineWaived && attendance.isFineWaived && updateData.fineAmount === undefined && attendance.checkInTime) {
+        const { fineAmount } = calculateLateFine(
+          attendance.checkInTime,
+          settings.checkInTime,
+          globalSettingsData
+        )
+        updateData.fineAmount =
+          effectiveFlexible && finalHours >= requiredHours ? 0 : fineAmount
+      }
+    }
+    if (isFineWaived) {
       updateData.fineAmount = 0
     }
 

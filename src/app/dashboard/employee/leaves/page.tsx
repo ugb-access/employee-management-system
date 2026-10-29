@@ -311,7 +311,7 @@ export default function EmployeeLeavesPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">My Leaves</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">My Leaves</h1>
             <p className="text-muted-foreground">
               Request and manage your leave applications
             </p>
@@ -444,7 +444,7 @@ export default function EmployeeLeavesPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats.total}</div>
+              <div className="text-2xl sm:text-3xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
           <Card>
@@ -453,7 +453,7 @@ export default function EmployeeLeavesPage() {
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-yellow-500">
+              <div className="text-2xl sm:text-3xl font-bold text-yellow-500">
                 {stats.pending}
               </div>
             </CardContent>
@@ -464,7 +464,7 @@ export default function EmployeeLeavesPage() {
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-500">
+              <div className="text-2xl sm:text-3xl font-bold text-green-500">
                 {stats.approved}
               </div>
             </CardContent>
@@ -475,7 +475,7 @@ export default function EmployeeLeavesPage() {
               <XCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-500">
+              <div className="text-2xl sm:text-3xl font-bold text-red-500">
                 {stats.rejected}
               </div>
             </CardContent>

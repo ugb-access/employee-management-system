@@ -38,6 +38,8 @@ interface Attendance {
   totalHours: number | null
   fineAmount: number
   missingCheckoutFine?: number
+  isFineWaived?: boolean
+  fineWaiveReason?: string | null
   isAutoLeave: boolean
 }
 
@@ -204,7 +206,7 @@ export default function EmployeeAttendancePage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">My Attendance</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">My Attendance</h1>
             <p className="text-muted-foreground">
               View your attendance history and statistics
             </p>
@@ -224,7 +226,7 @@ export default function EmployeeAttendancePage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{timeline.length}</div>
+              <div className="text-2xl sm:text-3xl font-bold">{timeline.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -233,7 +235,7 @@ export default function EmployeeAttendancePage() {
               <UserX className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-500">{absentDays.length}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-500">{absentDays.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -242,7 +244,7 @@ export default function EmployeeAttendancePage() {
               <AlertTriangle className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-500">{lateDays}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-orange-500">{lateDays}</div>
             </CardContent>
           </Card>
           <Card>
@@ -251,7 +253,7 @@ export default function EmployeeAttendancePage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{totalHours.toFixed(1)}h</div>
+              <div className="text-2xl sm:text-3xl font-bold">{totalHours.toFixed(1)}h</div>
             </CardContent>
           </Card>
           <Card>
@@ -260,7 +262,7 @@ export default function EmployeeAttendancePage() {
               <TrendingUp className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-500">Rs.{lateFine}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-500">Rs.{lateFine}</div>
             </CardContent>
           </Card>
           <Card>
@@ -269,7 +271,7 @@ export default function EmployeeAttendancePage() {
               <UserX className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-500">Rs.{absenceFine}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-500">Rs.{absenceFine}</div>
             </CardContent>
           </Card>
           <Card>
@@ -278,7 +280,7 @@ export default function EmployeeAttendancePage() {
               <TrendingUp className="h-4 w-4 text-red-700" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-700">Rs.{grandTotal}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-700">Rs.{grandTotal}</div>
             </CardContent>
           </Card>
         </div>
@@ -352,14 +354,21 @@ export default function EmployeeAttendancePage() {
                         </TableCell>
                         <TableCell>
                           {row.kind === 'attendance'
-                            ? row.data.fineAmount > 0
-                              ? <span className="text-red-500">
-                                  Rs.{row.data.fineAmount}
-                                  {(row.data.missingCheckoutFine ?? 0) > 0 && (
-                                    <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                            ? row.data.isFineWaived
+                              ? <span title={row.data.fineWaiveReason || undefined}>
+                                  <Badge variant="secondary" className="text-xs">Waived</Badge>
+                                  {row.data.fineWaiveReason && (
+                                    <span className="block text-xs text-muted-foreground truncate max-w-32">{row.data.fineWaiveReason}</span>
                                   )}
                                 </span>
-                              : 'Rs.0'
+                              : row.data.fineAmount > 0
+                                ? <span className="text-red-500">
+                                    Rs.{row.data.fineAmount}
+                                    {(row.data.missingCheckoutFine ?? 0) > 0 && (
+                                      <span className="block text-xs text-muted-foreground">incl. Rs.{row.data.missingCheckoutFine} no checkout</span>
+                                    )}
+                                  </span>
+                                : 'Rs.0'
                             : '—'}
                         </TableCell>
                         <TableCell>{getStatusBadge(row)}</TableCell>
@@ -368,7 +377,7 @@ export default function EmployeeAttendancePage() {
                   </TableBody>
                 </Table>
                 {timeline.length > PAGE_SIZE && (
-                  <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t">
                     <p className="text-sm text-muted-foreground">
                       Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, timeline.length)} of {timeline.length} records
                     </p>
