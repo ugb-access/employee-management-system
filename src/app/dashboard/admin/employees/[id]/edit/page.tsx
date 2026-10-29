@@ -220,7 +220,7 @@ export default function EditEmployeePage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold">Edit Employee</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Edit Employee</h1>
             <p className="text-muted-foreground">
               Update employee information and settings
             </p>

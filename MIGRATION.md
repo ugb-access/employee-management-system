@@ -9,7 +9,20 @@ npx prisma db push
 npx prisma generate
 ```
 
-## Missing Checkout Fine (this change)
+## Fine Waiver (this change)
+
+Lets an admin waive the fine for a single attendance day, with a reason
+(Admin → Attendance → edit a record → "Waive fine for this day"). A waived day
+has no late fine and no missing checkout fine.
+
+```sql
+ALTER TABLE "Attendance" ADD COLUMN IF NOT EXISTS "isFineWaived" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Attendance" ADD COLUMN IF NOT EXISTS "fineWaiveReason" TEXT;
+```
+
+Both columns are additive, so `prisma db push` applies them without data loss.
+
+## Missing Checkout Fine (previous change)
 
 Adds an optional fine for when an employee checks in but never checks out for
 the day. (For a flat late fine, set "Fine per 30 mins late" to 0 in Settings.)

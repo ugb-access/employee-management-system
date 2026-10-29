@@ -75,6 +75,8 @@ model Attendance {
   earlyMinutes      Int       @default(0)
   totalHours        Float     @default(0)
   fineAmount        Int       @default(0)
+  isFineWaived      Boolean   @default(false)
+  fineWaiveReason   String?
   isAutoLeave       Boolean   @default(false)
   isModifiedByAdmin Boolean   @default(false)
   modifiedAt        DateTime?

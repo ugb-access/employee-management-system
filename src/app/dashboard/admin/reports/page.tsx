@@ -266,7 +266,7 @@ export default function AdminReportsPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Reports & Analytics</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Reports & Analytics</h1>
             <p className="text-muted-foreground">
               View attendance and leave statistics
             </p>
@@ -285,7 +285,7 @@ export default function AdminReportsPage() {
               <CardDescription>Total Employees</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {stats?.totalEmployees || 0}
               </div>
             </CardContent>
@@ -295,7 +295,7 @@ export default function AdminReportsPage() {
               <CardDescription>Late Fines</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-500">
+              <div className="text-2xl sm:text-3xl font-bold text-orange-500">
                 Rs.{stats?.totalLateFines || 0}
               </div>
             </CardContent>
@@ -305,7 +305,7 @@ export default function AdminReportsPage() {
               <CardDescription>Absence Fines</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-500">
+              <div className="text-2xl sm:text-3xl font-bold text-red-500">
                 Rs.{stats?.totalAbsenceFines || 0}
               </div>
             </CardContent>
@@ -315,7 +315,7 @@ export default function AdminReportsPage() {
               <CardDescription>Grand Total Fines</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-700">
+              <div className="text-2xl sm:text-3xl font-bold text-red-700">
                 Rs.{stats?.grandTotalFines || 0}
               </div>
             </CardContent>

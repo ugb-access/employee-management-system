@@ -263,7 +263,7 @@ export default function AdminLeavesPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Leave Management</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Leave Management</h1>
             <p className="text-muted-foreground">
               Review and manage employee leave requests
             </p>

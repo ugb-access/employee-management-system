@@ -272,13 +272,13 @@ export default function EmployeeDashboardPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground">Welcome, {session.user?.name}</p>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold tabular-nums">
+            <div className="text-2xl sm:text-3xl font-bold tabular-nums">
               {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
             </div>
             <div className="text-sm text-muted-foreground">
@@ -331,7 +331,7 @@ export default function EmployeeDashboardPage() {
         {/* Status Card */}
         <Card>
           <CardContent className="py-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-full ${
                   isDayComplete ? 'bg-green-100 dark:bg-green-900' :
@@ -353,7 +353,7 @@ export default function EmployeeDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Button
                   size="lg"
                   disabled={!canCheckIn || checkInLoading}

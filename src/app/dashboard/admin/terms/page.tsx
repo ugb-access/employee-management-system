@@ -152,12 +152,12 @@ export default function AdminTermsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
             <FileText className="h-8 w-8 text-primary" />
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold">Terms &amp; Policies</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-bold">Terms &amp; Policies</h1>
                 {isDefault && (
                   <Badge variant="outline">Default (not yet published)</Badge>
                 )}
@@ -168,7 +168,7 @@ export default function AdminTermsPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={handleRegenerate}>
               <RotateCcw className="mr-2 h-4 w-4" />
               Regenerate from current settings

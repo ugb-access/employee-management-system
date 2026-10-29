@@ -41,6 +41,8 @@ export const editAttendanceSchema = z.object({
   checkOutTime: z.string().regex(/^\d{2}:\d{2}$/, 'Invalid time format (HH:MM)').optional(),
   checkInReason: z.string().optional(),
   checkOutReason: z.string().optional(),
+  isFineWaived: z.boolean().optional(),
+  fineWaiveReason: z.string().optional(),
 })
 
 export const leaveRequestSchema = z.object({

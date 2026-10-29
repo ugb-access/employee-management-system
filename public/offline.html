@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offline · EMS</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #ffffff; color: #09090b; padding: 24px; box-sizing: border-box; text-align: center;
+    }
+    @media (prefers-color-scheme: dark) { body { background: #09090b; color: #fafafa; } p { color: #a1a1aa; } }
+    img { width: 72px; height: 72px; margin-bottom: 16px; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    p { margin: 0 0 24px; color: #71717a; line-height: 1.5; }
+    button {
+      background: #22c55e; color: #fff; border: 0; border-radius: 8px;
+      padding: 10px 20px; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" alt="">
+    <h1>You're offline</h1>
+    <p>Check-in, check-out and attendance need an internet connection.<br>Reconnect and try again.</p>
+    <button onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>
