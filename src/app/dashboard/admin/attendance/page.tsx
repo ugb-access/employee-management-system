@@ -46,6 +46,15 @@ import { exportToCSV, formatDateForExport, formatTimeForExport } from '@/lib/exp
 import { formatLocalDate, formatTime, formatTimeForInput, computeAbsentDays } from '@/lib/calculations'
 import { toast } from 'sonner'
 import { PageLoader } from '@/components/ui/loader'
+import { ReasonPicker, EMPTY_REASON } from '@/components/reason-picker'
+import {
+  LATE_CHECKIN_REASONS,
+  EARLY_CHECKOUT_REASONS,
+  FINE_WAIVER_REASONS,
+  buildReason,
+  parseReason,
+  validateReason,
+} from '@/lib/reasons'
 
 interface UserSettings {
   checkInTime: string
@@ -94,6 +103,7 @@ interface Employee {
   id: string
   name: string | null
   employeeId: string | null
+  settings?: { checkInTime: string; checkOutTime: string } | null
 }
 
 type TimelineRow =
@@ -125,10 +135,10 @@ export default function AdminAttendancePage() {
   const [editForm, setEditForm] = useState({
     checkInTime: '',
     checkOutTime: '',
-    checkInReason: '',
-    checkOutReason: '',
+    checkInReason: EMPTY_REASON,
+    checkOutReason: EMPTY_REASON,
     isFineWaived: false,
-    fineWaiveReason: '',
+    fineWaiveReason: EMPTY_REASON,
   })
   const [saving, setSaving] = useState(false)
 
@@ -139,8 +149,8 @@ export default function AdminAttendancePage() {
     date: '',
     checkInTime: '09:00',
     checkOutTime: '17:00',
-    checkInReason: '',
-    checkOutReason: '',
+    checkInReason: EMPTY_REASON,
+    checkOutReason: EMPTY_REASON,
   })
   const [manualSubmitting, setManualSubmitting] = useState(false)
   const [globalSettingsState, setGlobalSettingsState] = useState<{
@@ -297,10 +307,10 @@ export default function AdminAttendancePage() {
     setEditForm({
       checkInTime: formatTimeForInput(record.checkInTime),
       checkOutTime: formatTimeForInput(record.checkOutTime),
-      checkInReason: record.checkInReason || '',
-      checkOutReason: record.checkOutReason || '',
+      checkInReason: parseReason(record.checkInReason, LATE_CHECKIN_REASONS),
+      checkOutReason: parseReason(record.checkOutReason, EARLY_CHECKOUT_REASONS),
       isFineWaived: record.isFineWaived,
-      fineWaiveReason: record.fineWaiveReason || '',
+      fineWaiveReason: parseReason(record.fineWaiveReason, FINE_WAIVER_REASONS),
     })
     setEditDialogOpen(true)
   }
@@ -311,20 +321,22 @@ export default function AdminAttendancePage() {
     setConvertLeaveOpen(true)
   }
 
+  const editCheckInLimit = editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00'
+  const editCheckOutLimit = editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'
+  const isEditLate = !!editForm.checkInTime && editForm.checkInTime > editCheckInLimit
+  const isEditEarly = !!editForm.checkOutTime && editForm.checkOutTime < editCheckOutLimit
+
   const handleEditSubmit = async () => {
     if (!editingAttendance) return
-    const checkInTimeStr = editingAttendance.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00'
-    if (editForm.checkInTime > checkInTimeStr && !editForm.checkInReason.trim()) {
-      toast.error('Check-in reason is required for late check-in')
-      return
-    }
-    const checkOutTimeStr = editingAttendance.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'
-    if (editForm.checkOutTime && editForm.checkOutTime < checkOutTimeStr && !editForm.checkOutReason.trim()) {
-      toast.error('Check-out reason is required for early check-out')
-      return
-    }
-    if (editForm.isFineWaived && !editForm.fineWaiveReason.trim()) {
-      toast.error('A reason is required to waive the fine')
+    const checkInReason = buildReason(editForm.checkInReason.choice, editForm.checkInReason.details)
+    const checkOutReason = buildReason(editForm.checkOutReason.choice, editForm.checkOutReason.details)
+    const fineWaiveReason = buildReason(editForm.fineWaiveReason.choice, editForm.fineWaiveReason.details)
+    const reasonError =
+      (isEditLate && validateReason(checkInReason, LATE_CHECKIN_REASONS) && `Check-in reason: ${validateReason(checkInReason, LATE_CHECKIN_REASONS)}`) ||
+      (isEditEarly && validateReason(checkOutReason, EARLY_CHECKOUT_REASONS) && `Check-out reason: ${validateReason(checkOutReason, EARLY_CHECKOUT_REASONS)}`) ||
+      (editForm.isFineWaived && validateReason(fineWaiveReason, FINE_WAIVER_REASONS) && `Waiver reason: ${validateReason(fineWaiveReason, FINE_WAIVER_REASONS)}`)
+    if (reasonError) {
+      toast.error(reasonError)
       return
     }
     setSaving(true)
@@ -335,10 +347,10 @@ export default function AdminAttendancePage() {
         body: JSON.stringify({
           checkInTime: editForm.checkInTime || undefined,
           checkOutTime: editForm.checkOutTime || undefined,
-          checkInReason: editForm.checkInReason || undefined,
-          checkOutReason: editForm.checkOutReason || undefined,
+          checkInReason: isEditLate ? checkInReason : undefined,
+          checkOutReason: isEditEarly ? checkOutReason : undefined,
           isFineWaived: editForm.isFineWaived,
-          fineWaiveReason: editForm.isFineWaived ? editForm.fineWaiveReason : undefined,
+          fineWaiveReason: editForm.isFineWaived ? fineWaiveReason : undefined,
         }),
       })
       const data = await response.json()
@@ -353,20 +365,25 @@ export default function AdminAttendancePage() {
     }
   }
 
+  const manualEmployee = employees.find((emp) => emp.id === manualForm.userId)
+  const manualCheckInLimit = manualEmployee?.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00'
+  const manualCheckOutLimit = manualEmployee?.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'
+  const isManualLate = !!manualForm.checkInTime && manualForm.checkInTime > manualCheckInLimit
+  const isManualEarly = !!manualForm.checkOutTime && manualForm.checkOutTime < manualCheckOutLimit
+
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!manualForm.userId || !manualForm.date || !manualForm.checkInTime) {
       toast.error('Please fill in all required fields')
       return
     }
-    const checkInTimeStr = globalSettingsState?.checkInTime || '09:00'
-    if (manualForm.checkInTime > checkInTimeStr && !manualForm.checkInReason.trim()) {
-      toast.error('Check-in reason is required for late check-in')
-      return
-    }
-    const checkOutTimeStr = globalSettingsState?.checkOutTime || '17:00'
-    if (manualForm.checkOutTime && manualForm.checkOutTime < checkOutTimeStr && !manualForm.checkOutReason.trim()) {
-      toast.error('Check-out reason is required for early check-out')
+    const checkInReason = buildReason(manualForm.checkInReason.choice, manualForm.checkInReason.details)
+    const checkOutReason = buildReason(manualForm.checkOutReason.choice, manualForm.checkOutReason.details)
+    const reasonError =
+      (isManualLate && validateReason(checkInReason, LATE_CHECKIN_REASONS) && `Check-in reason: ${validateReason(checkInReason, LATE_CHECKIN_REASONS)}`) ||
+      (isManualEarly && validateReason(checkOutReason, EARLY_CHECKOUT_REASONS) && `Check-out reason: ${validateReason(checkOutReason, EARLY_CHECKOUT_REASONS)}`)
+    if (reasonError) {
+      toast.error(reasonError)
       return
     }
     setManualSubmitting(true)
@@ -374,13 +391,20 @@ export default function AdminAttendancePage() {
       const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(manualForm),
+        body: JSON.stringify({
+          userId: manualForm.userId,
+          date: manualForm.date,
+          checkInTime: manualForm.checkInTime,
+          checkOutTime: manualForm.checkOutTime || undefined,
+          checkInReason: isManualLate ? checkInReason : undefined,
+          checkOutReason: isManualEarly ? checkOutReason : undefined,
+        }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to create attendance')
       toast.success('Attendance created successfully')
       setManualDialogOpen(false)
-      setManualForm({ userId: '', date: '', checkInTime: '09:00', checkOutTime: '17:00', checkInReason: '', checkOutReason: '' })
+      setManualForm({ userId: '', date: '', checkInTime: '09:00', checkOutTime: '17:00', checkInReason: EMPTY_REASON, checkOutReason: EMPTY_REASON })
       fetchData(false)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to create attendance')
@@ -783,52 +807,30 @@ export default function AdminAttendancePage() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="checkInReason">
-                  Check In Reason
-                  {editForm.checkInTime > (editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00') && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </Label>
-                <Textarea
-                  id="checkInReason"
-                  placeholder={
-                    editForm.checkInTime > (editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00')
-                      ? 'Required: Reason for late check-in'
-                      : 'Reason for late check-in (if any)'
-                  }
-                  value={editForm.checkInReason}
-                  onChange={(e) => setEditForm({ ...editForm, checkInReason: e.target.value })}
-                />
-                {editForm.checkInTime > (editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00') && (
-                  <p className="text-xs text-muted-foreground">
-                    Check-in time is after {editingAttendance?.user.settings?.checkInTime || globalSettingsState?.checkInTime || '09:00'}. Reason is required.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="checkOutReason">
-                  Check Out Reason
-                  {editForm.checkOutTime && editForm.checkOutTime < (editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00') && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </Label>
-                <Textarea
-                  id="checkOutReason"
-                  placeholder={
-                    editForm.checkOutTime && editForm.checkOutTime < (editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00')
-                      ? 'Required: Reason for early check-out'
-                      : 'Reason for early check-out (if any)'
-                  }
-                  value={editForm.checkOutReason}
-                  onChange={(e) => setEditForm({ ...editForm, checkOutReason: e.target.value })}
-                />
-                {editForm.checkOutTime && editForm.checkOutTime < (editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00') && (
-                  <p className="text-xs text-muted-foreground">
-                    Check-out time is before {editingAttendance?.user.settings?.checkOutTime || globalSettingsState?.checkOutTime || '17:00'}. Reason is required.
-                  </p>
-                )}
-              </div>
+              {isEditLate && (
+                <div className="space-y-2">
+                  <ReasonPicker
+                    id="checkInReason"
+                    label="Check In Reason"
+                    options={LATE_CHECKIN_REASONS}
+                    value={editForm.checkInReason}
+                    onChange={(checkInReason) => setEditForm({ ...editForm, checkInReason })}
+                  />
+                  <p className="text-xs text-muted-foreground">Check-in time is after {editCheckInLimit}.</p>
+                </div>
+              )}
+              {isEditEarly && (
+                <div className="space-y-2">
+                  <ReasonPicker
+                    id="checkOutReason"
+                    label="Check Out Reason"
+                    options={EARLY_CHECKOUT_REASONS}
+                    value={editForm.checkOutReason}
+                    onChange={(checkOutReason) => setEditForm({ ...editForm, checkOutReason })}
+                  />
+                  <p className="text-xs text-muted-foreground">Check-out time is before {editCheckOutLimit}.</p>
+                </div>
+              )}
               <div className="space-y-3 rounded-lg border p-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="space-y-1">
@@ -846,17 +848,13 @@ export default function AdminAttendancePage() {
                   />
                 </div>
                 {editForm.isFineWaived && (
-                  <div className="space-y-2">
-                    <Label htmlFor="fineWaiveReason">
-                      Waiver Reason <span className="text-red-500">*</span>
-                    </Label>
-                    <Textarea
-                      id="fineWaiveReason"
-                      placeholder="e.g. Approved delay, traffic accident, official errand"
-                      value={editForm.fineWaiveReason}
-                      onChange={(e) => setEditForm({ ...editForm, fineWaiveReason: e.target.value })}
-                    />
-                  </div>
+                  <ReasonPicker
+                    id="fineWaiveReason"
+                    label="Waiver Reason"
+                    options={FINE_WAIVER_REASONS}
+                    value={editForm.fineWaiveReason}
+                    onChange={(fineWaiveReason) => setEditForm({ ...editForm, fineWaiveReason })}
+                  />
                 )}
               </div>
             </div>
@@ -930,52 +928,30 @@ export default function AdminAttendancePage() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="manualCheckInReason">
-                  Check In Reason
-                  {manualForm.checkInTime > (globalSettingsState?.checkInTime || '09:00') && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </Label>
-                <Textarea
-                  id="manualCheckInReason"
-                  placeholder={
-                    manualForm.checkInTime > (globalSettingsState?.checkInTime || '09:00')
-                      ? 'Required: Reason for late check-in'
-                      : 'Reason for late check-in (if any)'
-                  }
-                  value={manualForm.checkInReason}
-                  onChange={(e) => setManualForm({ ...manualForm, checkInReason: e.target.value })}
-                />
-                {manualForm.checkInTime > (globalSettingsState?.checkInTime || '09:00') && (
-                  <p className="text-xs text-muted-foreground">
-                    Check-in time is after {globalSettingsState?.checkInTime || '09:00'}. Reason is required.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="manualCheckOutReason">
-                  Check Out Reason
-                  {manualForm.checkOutTime && manualForm.checkOutTime < (globalSettingsState?.checkOutTime || '17:00') && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
-                </Label>
-                <Textarea
-                  id="manualCheckOutReason"
-                  placeholder={
-                    manualForm.checkOutTime && manualForm.checkOutTime < (globalSettingsState?.checkOutTime || '17:00')
-                      ? 'Required: Reason for early check-out'
-                      : 'Reason for early check-out (if any)'
-                  }
-                  value={manualForm.checkOutReason}
-                  onChange={(e) => setManualForm({ ...manualForm, checkOutReason: e.target.value })}
-                />
-                {manualForm.checkOutTime && manualForm.checkOutTime < (globalSettingsState?.checkOutTime || '17:00') && (
-                  <p className="text-xs text-muted-foreground">
-                    Check-out time is before {globalSettingsState?.checkOutTime || '17:00'}. Reason is required.
-                  </p>
-                )}
-              </div>
+              {isManualLate && (
+                <div className="space-y-2">
+                  <ReasonPicker
+                    id="manualCheckInReason"
+                    label="Check In Reason"
+                    options={LATE_CHECKIN_REASONS}
+                    value={manualForm.checkInReason}
+                    onChange={(checkInReason) => setManualForm({ ...manualForm, checkInReason })}
+                  />
+                  <p className="text-xs text-muted-foreground">Check-in time is after {manualCheckInLimit}.</p>
+                </div>
+              )}
+              {isManualEarly && (
+                <div className="space-y-2">
+                  <ReasonPicker
+                    id="manualCheckOutReason"
+                    label="Check Out Reason"
+                    options={EARLY_CHECKOUT_REASONS}
+                    value={manualForm.checkOutReason}
+                    onChange={(checkOutReason) => setManualForm({ ...manualForm, checkOutReason })}
+                  />
+                  <p className="text-xs text-muted-foreground">Check-out time is before {manualCheckOutLimit}.</p>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setManualDialogOpen(false)}>
                   Cancel
